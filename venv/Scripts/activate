@@ -38,7 +38,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="C:\Users\Vryll\Desktop\New folder\web-mobile-app\venv"
+VIRTUAL_ENV="C:\Users\Vryll\Desktop\BH TEAM\crypto-api\venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"
