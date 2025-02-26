@@ -5,5 +5,3 @@ class UserSchema(Schema):
     name: str
     email: str
     password:str
-
-    

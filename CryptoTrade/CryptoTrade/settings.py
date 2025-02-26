@@ -42,7 +42,6 @@ INSTALLED_APPS = [
     'wallet.apps.WalletConfig',
     'crypto_currency.apps.CryptoCurrencyConfig',
     'deposit.apps.DepositConfig',
-    'core.apps.CoreConfig'
 
 ]
 
