@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 import random
 import string
 import secrets
+from wallet.models import *
 
 router = Router()
 
@@ -20,11 +21,28 @@ def signup_user(request, form:SingupUserSchema):
     if form.password != form.confirm_password:
         return {"error": "Password do not match!"},
     
-    User.objects.create(
+    user = User.objects.create(
         email=form.email,
         password=make_password(form.password),
     )
-    return {"success": "The account was successfully signed up!"}
+    #Creating wallet instance
+    wallet = Wallet.objects.create()
+    wallet.user_id.add(user)
+
+    cryptocurrencies = Cryptocurrency.objects.all()
+
+    # Initialize WalletBalance for each cryptocurrency
+    cryptocurrencies = Cryptocurrency.objects.all()
+    WalletBalance.objects.bulk_create([
+        WalletBalance(wallet=wallet, cryptocurrency=crypto, balance=0.0)
+        for crypto in cryptocurrencies
+    ])
+    return {
+        "success": "The account was successfully signed up!",
+        "user_id": user.id,
+        "wallet_id": wallet.id,
+        "cryptocurrencies": [crypto.symbol for crypto in cryptocurrencies]
+    }
 
 #To generate a code for referral
 def RandomReferralCodeGenerator(length=8):
