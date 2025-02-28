@@ -7,3 +7,9 @@ class DepositSchema(Schema):
     # user_id: int
     # symbol: str
     amount: float
+
+class DepositRequest(Schema):
+    cryptocurrency_id: str
+    network_id: str
+
+ 

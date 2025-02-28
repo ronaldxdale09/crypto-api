@@ -19,8 +19,6 @@ class User(models.Model):
     def __str__(self):
         return self.name
     
-
-    
 class UserDetail(models.Model):
     user_id= models.OneToOneField(User,null = True, blank = True, on_delete=models.CASCADE)
     role_id=models.ManyToManyField(Role,null = True, blank = True )

@@ -32,6 +32,7 @@ class Transaction(models.Model):
 class WalletBalance(models.Model):
     wallet = models.ForeignKey(Wallet,on_delete=models.CASCADE, null = True, blank = True, related_name='balances')
     cryptocurrency = models.ForeignKey(Cryptocurrency,null = True, blank = True, on_delete=models.CASCADE)
+    network=models.ForeignKey(Cryptocurrency,null = True, blank = True, on_delete=models.CASCADE, related_name="wallet_network")
     balance = models.DecimalField(max_digits=24, decimal_places=8, default=0.0)
 
     def __str__(self):

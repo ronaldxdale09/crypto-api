@@ -7,17 +7,52 @@ import random
 import string
 import secrets
 from wallet.models import *
+from django.contrib.auth.hashers import check_password
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 
 router = Router()
 
-# @router.get('/getUser', response=list[UserSchema])
-# def get_user(request):
-#     return User.objects.all()
+@router.get('/getUser', response=list[UserSchema])
+def get_user(request):
+    return User.objects.all()
+
+@router.post('/login')
+def user_login(request, form: LoginUserSchema):
+    try:
+        validate_email(form.email)
+    except ValidationError:
+        return {"error": "Invalid email format"}
+    
+    user_instance = get_object_or_404(User, email=form.email)
+    user_id = user_instance.id
+
+    if not check_password(form.password, user_instance.password):
+        return {"error": "Invalid email or password!"}
+    
+    wallet_instance = Wallet.objects.get(user_id=user_id)
+    if not wallet_instance:
+        return {"error": "Wallet not found for this user"}
+    
+    return {
+        "success": True,
+        "user_id":user_id,
+        "wallet_id":wallet_instance.id,
+        "email":user_instance.email
+    }
 
 #CREATE
 #user registration functionality
 @router.post('/signup')
 def signup_user(request, form:SingupUserSchema):
+    try:
+        validate_email(form.email)
+    except ValidationError:
+        return {"error": "Invalid email format"}
+    
+    if User.objects.filter(email=form.email).exists():
+        return {"error": "Email already use"}
+
     if form.password != form.confirm_password:
         return {"error": "Password do not match!"},
     
@@ -28,8 +63,6 @@ def signup_user(request, form:SingupUserSchema):
     #Creating wallet instance
     wallet = Wallet.objects.create()
     wallet.user_id.add(user)
-
-    cryptocurrencies = Cryptocurrency.objects.all()
 
     # Initialize WalletBalance for each cryptocurrency
     cryptocurrencies = Cryptocurrency.objects.all()
@@ -51,8 +84,8 @@ def RandomReferralCodeGenerator(length=8):
 
 #To generate a secret phrase
 def SecretPhraseGenerator(length=12):
-    words = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(words) for _ in range(length))
+    code = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(code) for _ in range(length))
 
 
 #To create user details/addtional signup info needed

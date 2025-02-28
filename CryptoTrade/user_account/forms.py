@@ -1,15 +1,22 @@
 from ninja import Schema
 from .models import *
+from pydantic import BaseModel
 
 class UserSchema(Schema):
     name: str
     email: str
     password:str
 
+
+
 class SingupUserSchema(Schema):
     email: str
     password:str
     confirm_password:str
+
+class LoginUserSchema(BaseModel):
+    email: str
+    password:str
 
 class UpdateUserSchema(Schema):
     name:str
