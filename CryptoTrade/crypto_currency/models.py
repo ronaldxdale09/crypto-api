@@ -10,6 +10,8 @@ class Network(models.Model):
 
     def __str__(self):
         return self.name
+    
+
 
 class Cryptocurrency(models.Model):
     symbol=models.CharField(max_length=20, null = True, blank = True)

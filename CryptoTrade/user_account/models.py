@@ -51,3 +51,15 @@ class KnowYourCustomer(models.Model):
 
     def __str__(self):
         return self.full_name
+    
+class Address(models.Model):
+    address_type=models.CharField(max_length=200, null = True, blank = True) #Example is TRC20
+    address = models.CharField(max_length=200, null = True, blank = True) # TAL9AnPR35ogDy53sgpcLyEL9nASy2m4z
+
+    def __str__(self):
+        return self.address
+    
+class UserAddress(models.Model):
+    user_id = models.ManyToManyField(User,null = True, blank = True)
+    address_id = models.ManyToManyField(Address,null = True, blank = True)
+

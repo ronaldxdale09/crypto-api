@@ -3,11 +3,9 @@ from .models import *
 from pydantic import BaseModel
 
 class UserSchema(Schema):
-    name: str
+    # name: Opstr
     email: str
     password:str
-
-
 
 class SingupUserSchema(Schema):
     email: str

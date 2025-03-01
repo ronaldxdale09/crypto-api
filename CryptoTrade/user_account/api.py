@@ -15,7 +15,8 @@ router = Router()
 
 @router.get('/getUser', response=list[UserSchema])
 def get_user(request):
-    return User.objects.all()
+    users = User.objects.all()
+    return [UserSchema(name=user.name, email=user.email, password=user.password) for user in users]
 
 @router.post('/login')
 def user_login(request, form: LoginUserSchema):
@@ -45,6 +46,7 @@ def user_login(request, form: LoginUserSchema):
 #user registration functionality
 @router.post('/signup')
 def signup_user(request, form:SingupUserSchema):
+    
     try:
         validate_email(form.email)
     except ValidationError:
@@ -54,7 +56,7 @@ def signup_user(request, form:SingupUserSchema):
         return {"error": "Email already use"}
 
     if form.password != form.confirm_password:
-        return {"error": "Password do not match!"},
+        return {"error": "Password do not match!"}
     
     user = User.objects.create(
         email=form.email,
@@ -86,7 +88,6 @@ def RandomReferralCodeGenerator(length=8):
 def SecretPhraseGenerator(length=12):
     code = string.ascii_letters + string.digits
     return ''.join(secrets.choice(code) for _ in range(length))
-
 
 #To create user details/addtional signup info needed
 @router.post('/user_details/{userId}')
