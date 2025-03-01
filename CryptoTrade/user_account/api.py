@@ -10,6 +10,7 @@ from wallet.models import *
 from django.contrib.auth.hashers import check_password
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from django.http import JsonResponse
 
 router = Router()
 
@@ -43,10 +44,15 @@ def user_login(request, form: LoginUserSchema):
     }
 
 #CREATE
+
+
 #user registration functionality
 @router.post('/signup')
 def signup_user(request, form:SingupUserSchema):
-    
+    # response = JsonResponse({"message": "CORS preflight successful"})
+    # response["Access-Control-Allow-Origin"] = "*"
+    # response["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    # response["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept"
     try:
         validate_email(form.email)
     except ValidationError:
@@ -62,6 +68,7 @@ def signup_user(request, form:SingupUserSchema):
         email=form.email,
         password=make_password(form.password),
     )
+    print("Received data:", form.email, form.password, form.confirm_password)
     #Creating wallet instance
     wallet = Wallet.objects.create()
     wallet.user_id.add(user)
@@ -72,7 +79,9 @@ def signup_user(request, form:SingupUserSchema):
         WalletBalance(wallet=wallet, cryptocurrency=crypto, balance=0.0)
         for crypto in cryptocurrencies
     ])
+   
     return {
+    
         "success": "The account was successfully signed up!",
         "user_id": user.id,
         "wallet_id": wallet.id,

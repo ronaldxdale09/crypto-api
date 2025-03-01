@@ -50,14 +50,15 @@ CORS_ALLOW_METHODS = [
 ]
 
 CORS_ALLOW_ALL_ORIGNS = [
-    "https://b6ac-49-145-239-92.ngrok-free.app",
-    "https://runjs.app/play",
+    "https://app.flutterflow.io/debug/NyZRvZ8MqZMvUzWYCQDS",
+    "https://c473-2001-4455-26a-1d00-a595-3947-c332-e1c6.ngrok-free.app",
 ]
 
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.ngrok-free\.app$",
-]
+# CORS_ALLOWED_ORIGIN_REGEXES = [
+#     r"^https://.*\.ngrok-free\.app$",
+# ]
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = True
 
 # Application definition
 
@@ -74,7 +75,6 @@ INSTALLED_APPS = [
     'wallet.apps.WalletConfig',
     'crypto_currency.apps.CryptoCurrencyConfig',
     'deposit.apps.DepositConfig',
-
 ]
 
 MIDDLEWARE = [

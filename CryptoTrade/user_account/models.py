@@ -16,8 +16,8 @@ class User(models.Model):
     email_verified_at = models.DateTimeField(null=True, blank=True, default=timezone.now)
     password = models.CharField(max_length=200, null=True, blank=True)
 
-    def __str__(self):
-        return self.name
+    # def __str__(self):
+    #     return self.name
     
 class UserDetail(models.Model):
     user_id= models.OneToOneField(User,null = True, blank = True, on_delete=models.CASCADE)
