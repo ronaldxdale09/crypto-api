@@ -168,43 +168,32 @@ def user_details(request, userId: int, form: CreateUserDetailSchema):
         "secret_phrase": user_detail.secret_phrase
     }
 
-
-
 #UPDATE
 #user edit profile after the signup using email and setting up the password
 @router.post('/edit_profile/user={userId}')
-def edit_profile(request, userId: int, form: UpdateUserSchema = None, user_profile: Optional[UploadedFile] = File(None)):
+def edit_profile(request, userId: int):
     from django.conf import settings
     
-    # Get or create User model
+    # Get user instance
     user_instance = get_object_or_404(User, id=userId)
     
+    # Extract data from request
+    name = request.POST.get('name')
+    phone_number = request.POST.get('phone_number')
+    user_profile = request.FILES.get('user_profile')
+    
     # Update User fields if provided
-    if form:
-        user_instance.name = form.name or user_instance.name
-        user_instance.email = form.email or user_instance.email
+    if name:
+        user_instance.name = name
         user_instance.save()
     
     # Get or create UserDetail
     user_detail, created = UserDetail.objects.get_or_create(user_id=user_instance)
     
-    # Update UserDetail fields if provided
-    if form:
-        if hasattr(form, 'phone_number'):
-            user_detail.phone_number = form.phone_number or user_detail.phone_number
-        if hasattr(form, 'is_verified') and form.is_verified is not None:
-            user_detail.is_verified = form.is_verified
-        if hasattr(form, 'tier') and form.tier is not None:
-            user_detail.tier = form.tier
-        if hasattr(form, 'trading_fee_rate'):
-            user_detail.trading_fee_rate = form.trading_fee_rate or user_detail.trading_fee_rate
-        if hasattr(form, 'last_login_session'):
-            user_detail.last_login_session = form.last_login_session or user_detail.last_login_session
-        if hasattr(form, 'previous_ip_address'):
-            user_detail.previous_ip_address = form.previous_ip_address or user_detail.previous_ip_address
-        if hasattr(form, 'status'):
-            user_detail.status = form.status or user_detail.status
-
+    # Update phone number if provided
+    if phone_number:
+        user_detail.phone_number = phone_number
+    
     # Upload profile image to Supabase Storage if provided
     if user_profile:
         try:
