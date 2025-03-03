@@ -1,4 +1,4 @@
-from ninja import Router
+from ninja import Router, UploadedFile, File
 from .models import *
 from .forms import *
 from django.contrib.auth.hashers import make_password
@@ -166,57 +166,42 @@ def user_details(request, userId: int, form: CreateUserDetailSchema):
 
 #UPDATE
 #user edit profile after the signup using email and setting up the password
-@router.put('/edit_profile/user={userId}')
-def edit_profile(request, userId: int, form: UpdateUserSchema, user_profile: UploadedFile = None):
-    # Update User model
+@router.post('/edit_profile/user={userId}')
+def edit_profile(request, userId: int, form: UpdateUserSchema = None, user_profile: Optional[UploadedFile] = File(None)):
+    # Get or create User model
     user_instance = get_object_or_404(User, id=userId)
     
-    # Only update provided fields in the form
+    # Update User fields if provided
     if form:
-        if hasattr(form, 'name') and form.name is not None:
-            user_instance.name = form.name
+        user_instance.name = form.name or user_instance.name
+        user_instance.email = form.email
         user_instance.save()
     
-    # Get UserDetail model (don't create if it doesn't exist)
-    try:
-        user_detail = UserDetail.objects.get(user_id=user_instance)
-    except UserDetail.DoesNotExist:
-        return {
-            "success": False,
-            "message": "User detail does not exist for this user"
-        }
+    # Get or create UserDetail
+    user_detail, created = UserDetail.objects.get_or_create(user_id=user_instance)
     
-    # Only update provided fields
+    # Update UserDetail fields if provided
     if form:
-        if hasattr(form, 'phone_number') and form.phone_number is not None:
-            user_detail.phone_number = form.phone_number
-        
-        if hasattr(form, 'is_verified') and form.is_verified is not None:
-            user_detail.is_verified = form.is_verified
-            
-        if hasattr(form, 'tier') and form.tier is not None:
-            user_detail.tier = form.tier
-        
-        if hasattr(form, 'trading_fee_rate') and form.trading_fee_rate is not None:
-            user_detail.trading_fee_rate = form.trading_fee_rate
-            
-        if hasattr(form, 'last_login_session') and form.last_login_session is not None:
-            user_detail.last_login_session = form.last_login_session
-            
-        if hasattr(form, 'previous_ip_address') and form.previous_ip_address is not None:
-            user_detail.previous_ip_address = form.previous_ip_address
-            
-        if hasattr(form, 'status') and form.status is not None:
-            user_detail.status = form.status
+        user_detail.phone_number = form.phone_number or user_detail.phone_number
+        user_detail.is_verified = form.is_verified if form.is_verified is not None else user_detail.is_verified
+        user_detail.tier = form.tier if form.tier is not None else user_detail.tier
+        user_detail.trading_fee_rate = form.trading_fee_rate or user_detail.trading_fee_rate
+        user_detail.last_login_session = form.last_login_session or user_detail.last_login_session
+        user_detail.previous_ip_address = form.previous_ip_address or user_detail.previous_ip_address
+        user_detail.status = form.status or user_detail.status
+
+    # Update user_profile if provided
+    if user_profile:
+        user_detail.user_profile = user_profile
     
-        # Handle file upload only if provided
-        if hasattr(form, 'user_profile') and form.user_profile is not None:
-            user_detail.user_profile = user_profile
+    user_detail.save()
     
-        user_detail.save()
+    # Customize response message
+    creation_message = "User details created" if created else "User details updated"
     
     return {
-        "success": True, 
+        "success": True,
+        "message": creation_message,
         "user": {
             "id": user_instance.id,
             "name": user_instance.name,
