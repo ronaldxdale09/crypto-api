@@ -76,6 +76,8 @@ INSTALLED_APPS = [
     'wallet.apps.WalletConfig',
     'crypto_currency.apps.CryptoCurrencyConfig',
     'deposit.apps.DepositConfig',
+    'trading.apps.TradingConfig',
+
 ]
 
 MIDDLEWARE = [
