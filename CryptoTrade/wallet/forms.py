@@ -1,12 +1,23 @@
 from .models import *
 from ninja import Schema
 from typing import List, Optional
+<<<<<<< HEAD
+=======
 from decimal import Decimal
 from datetime import datetime
-from pydantic import BaseModel, Field
+>>>>>>> 218e8708f1f31a40e25c1e0d2bb2c0ed5e319b9d
 
-# Basic wallet schemas
+# Basic schemas
 class WalletBalanceSchema(Schema):
+<<<<<<< HEAD
+    wallet_id: Optional[int] = None
+    crypto_id: Optional[int] = None
+    network_id: Optional[int] = None
+    balance: float
+class WalletSchema(Schema):
+    wallet_id: int
+    balances: List[WalletBalanceSchema]
+=======
     wallet_id: int
     crypto_id: int
     balance: Decimal
@@ -17,7 +28,6 @@ class WalletSchema(Schema):
     wallet_address: Optional[str] = None
     is_active: bool
 
-# Transaction schemas
 class TransactionSchema(Schema):
     id: int
     type: str
@@ -26,11 +36,7 @@ class TransactionSchema(Schema):
     status: str
     timestamp: Optional[datetime] = None
 
-class TransactionListSchema(Schema):
-    transactions: List[TransactionSchema]
-    count: int
-
-# Request schemas for operations
+# Request schemas
 class WithdrawRequestSchema(Schema):
     wallet_id: int
     crypto_id: int
@@ -38,7 +44,7 @@ class WithdrawRequestSchema(Schema):
     address: str
     network_id: int
 
-class DepositAddressSchema(Schema):
+class DepositAddressRequestSchema(Schema):
     wallet_id: int
     crypto_id: int
     network_id: int
@@ -48,50 +54,4 @@ class TransferRequestSchema(Schema):
     to_wallet_id: int
     crypto_id: int
     amount: Decimal
-
-# Response schemas
-class WithdrawResponseSchema(Schema):
-    success: bool
-    transaction_id: int
-    amount: Decimal
-    fee: Decimal
-    status: str
-
-class DepositAddressResponseSchema(Schema):
-    success: bool
-    wallet_id: int
-    crypto: str
-    network: str
-    address: str
-
-class TransferResponseSchema(Schema):
-    success: bool
-    transaction_id: int
-    amount: Decimal
-    from_wallet: int
-    to_wallet: int
-    status: str
-
-# Market data schemas
-class CryptoPriceSchema(Schema):
-    crypto_id: int
-    symbol: str
-    price_usd: float
-    change_24h: Optional[float] = None
-    updated_at: str
-
-class MarketPriceListSchema(Schema):
-    prices: List[CryptoPriceSchema]
-
-# Wallet operations schemas
-class WalletOperationResultSchema(Schema):
-    success: bool
-    wallet_id: int
-    operation: str
-    details: Optional[dict] = None
-
-# User wallet schema
-class UserWalletListSchema(Schema):
-    user_id: int
-    wallets: List[WalletSchema]
-    count: int
+>>>>>>> 218e8708f1f31a40e25c1e0d2bb2c0ed5e319b9d

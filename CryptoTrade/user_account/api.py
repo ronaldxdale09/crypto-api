@@ -11,14 +11,60 @@ from django.contrib.auth.hashers import check_password
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
+from wallet.models import *
+from crypto_currency.models import *
 
 router = Router()
 
+#Get Function
 @router.get('/getUser', response=list[UserSchema])
 def get_user(request):
     users = User.objects.all()
     return [UserSchema(name=user.name, email=user.email, password=user.password) for user in users]
 
+@router.get('user={user_id}', response=UserWalletResponseSchema)
+def user(request, user_id: int):
+    user = get_object_or_404(User, id=user_id)
+    user_detail_instance = UserDetail.objects.filter(user_id=user_id).first()
+    wallet_instance = Wallet.objects.filter(user_id=user).first()
+    
+    wallet_balances = WalletBalance.objects.filter(wallet=wallet_instance) if wallet_instance else []
+
+    balance_data = [
+        {
+            "wallet_id": balance.wallet.id if balance.wallet else None,
+            "crypto_id": balance.cryptocurrency.id if balance.cryptocurrency else None,
+            "network_id": balance.network.id if balance.network else None,
+            "balance": float(balance.balance)
+        }
+        for balance in wallet_balances
+    ]
+
+    return {
+        "user": {"email": user.email},
+        "user_detail": {
+            "phone_number": user_detail_instance.phone_number if user_detail_instance else None,
+            "secret_phrase": user_detail_instance.secret_phrase if user_detail_instance else None,
+            "is_verified": user_detail_instance.is_verified if user_detail_instance else None,
+            "tier": user_detail_instance.tier if user_detail_instance else None,
+            "trading_fee_rate": user_detail_instance.trading_fee_rate if user_detail_instance else None,
+            "ip_address": user_detail_instance.ip_address if user_detail_instance else None,
+            "last_login_session": user_detail_instance.last_login_session if user_detail_instance else None,
+            "previous_ip_address": user_detail_instance.previous_ip_address if user_detail_instance else None,
+            "referral_code": user_detail_instance.referral_code if user_detail_instance else None,
+            "status": user_detail_instance.status if user_detail_instance else None,
+        } if user_detail_instance else None,
+        "wallet": {
+            "wallet_id": wallet_instance.id if wallet_instance else None,
+            "balances": balance_data
+        } if wallet_instance else None,
+    }
+
+
+
+
+
+#Login Function
 @router.post('/login')
 def user_login(request, form: LoginUserSchema):
     try:
@@ -44,15 +90,9 @@ def user_login(request, form: LoginUserSchema):
     }
 
 #CREATE
-
-
 #user registration functionality
 @router.post('/signup')
 def signup_user(request, form:SingupUserSchema):
-    # response = JsonResponse({"message": "CORS preflight successful"})
-    # response["Access-Control-Allow-Origin"] = "*"
-    # response["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    # response["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept"
     try:
         validate_email(form.email)
     except ValidationError:
