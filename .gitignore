@@ -2,3 +2,7 @@
 /venv
 /venv
 /venv/Lib
+CryptoTrade/crypto_currency/migrations/__pycache__/0003_delete_address.cpython-310.pyc
+CryptoTrade/wallet/__pycache__/forms.cpython-310.pyc
+CryptoTrade/wallet/__pycache__/models.cpython-310.pyc
+CryptoTrade/wallet/migrations/__pycache__/0010_transaction_destination_address_and_more.cpython-310.pyc
