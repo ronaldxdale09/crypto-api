@@ -24,7 +24,7 @@ class User(models.Model):
     #     return self.name
     
 class UserDetail(models.Model):
-    user_profile= models.ImageField(upload_to='user_profile/', blank=True)
+    user_profile = models.TextField(null=True, blank=True) 
     user_id= models.OneToOneField(User,null = True, blank = True, on_delete=models.CASCADE)
     role_id=models.ManyToManyField(Role,null = True, blank = True )
     phone_number= models.CharField(max_length=200, null = True, blank = True)

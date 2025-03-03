@@ -15,6 +15,12 @@ from wallet.models import *
 from crypto_currency.models import *
 from ninja.files import UploadedFile
 
+import uuid
+from django.conf import settings
+import requests 
+
+
+
 router = Router()
 
 #Get Function
@@ -168,13 +174,15 @@ def user_details(request, userId: int, form: CreateUserDetailSchema):
 #user edit profile after the signup using email and setting up the password
 @router.post('/edit_profile/user={userId}')
 def edit_profile(request, userId: int, form: UpdateUserSchema = None, user_profile: Optional[UploadedFile] = File(None)):
+    from django.conf import settings
+    
     # Get or create User model
     user_instance = get_object_or_404(User, id=userId)
     
     # Update User fields if provided
     if form:
         user_instance.name = form.name or user_instance.name
-        user_instance.email = form.email
+        user_instance.email = form.email or user_instance.email
         user_instance.save()
     
     # Get or create UserDetail
@@ -182,17 +190,78 @@ def edit_profile(request, userId: int, form: UpdateUserSchema = None, user_profi
     
     # Update UserDetail fields if provided
     if form:
-        user_detail.phone_number = form.phone_number or user_detail.phone_number
-        user_detail.is_verified = form.is_verified if form.is_verified is not None else user_detail.is_verified
-        user_detail.tier = form.tier if form.tier is not None else user_detail.tier
-        user_detail.trading_fee_rate = form.trading_fee_rate or user_detail.trading_fee_rate
-        user_detail.last_login_session = form.last_login_session or user_detail.last_login_session
-        user_detail.previous_ip_address = form.previous_ip_address or user_detail.previous_ip_address
-        user_detail.status = form.status or user_detail.status
+        if hasattr(form, 'phone_number'):
+            user_detail.phone_number = form.phone_number or user_detail.phone_number
+        if hasattr(form, 'is_verified') and form.is_verified is not None:
+            user_detail.is_verified = form.is_verified
+        if hasattr(form, 'tier') and form.tier is not None:
+            user_detail.tier = form.tier
+        if hasattr(form, 'trading_fee_rate'):
+            user_detail.trading_fee_rate = form.trading_fee_rate or user_detail.trading_fee_rate
+        if hasattr(form, 'last_login_session'):
+            user_detail.last_login_session = form.last_login_session or user_detail.last_login_session
+        if hasattr(form, 'previous_ip_address'):
+            user_detail.previous_ip_address = form.previous_ip_address or user_detail.previous_ip_address
+        if hasattr(form, 'status'):
+            user_detail.status = form.status or user_detail.status
 
-    # Update user_profile if provided
+    # Upload profile image to Supabase Storage if provided
     if user_profile:
-        user_detail.user_profile = user_profile
+        try:
+            # Read file data
+            file_content = user_profile.read()
+            file_size = len(file_content)
+            file_type = user_profile.content_type
+            
+            # Print debug info
+            print(f"Uploading file: {user_profile.name}, Size: {file_size}, Type: {file_type}")
+            
+            # Generate a unique filename (without folder path)
+            filename = f"user_profile_{userId}_{uuid.uuid4().hex[:8]}.{user_profile.name.split('.')[-1]}"
+            
+            bucket_name = "crypto_app"
+            supabase_url = settings.SUPABASE_URL
+            storage_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{filename}"
+            
+            print(f"Upload URL: {storage_url}")
+            
+            # Set up headers with Supabase API key
+            headers = {
+                "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",  # Use service_role key
+                "Content-Type": file_type,
+            }
+            
+            # Upload the file to Supabase Storage
+            upload_response = requests.post(
+                storage_url,
+                headers=headers,
+                data=file_content
+            )
+            
+            # Debug response
+            print(f"Upload status code: {upload_response.status_code}")
+            print(f"Upload response: {upload_response.text[:200]}...")  # Print first 200 chars
+            
+            if upload_response.status_code in [200, 201]:
+                # Calculate the public URL
+                public_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{filename}"
+                user_detail.user_profile = public_url
+                print(f"File uploaded successfully: {public_url}")
+            else:
+                print(f"Error uploading to Supabase: {upload_response.text}")
+                return {
+                    "success": False,
+                    "message": f"Failed to upload image: {upload_response.status_code} - {upload_response.text}"
+                }
+                
+        except Exception as e:
+            import traceback
+            print(f"Error uploading image: {str(e)}")
+            print(traceback.format_exc())
+            return {
+                "success": False,
+                "message": f"Error uploading image: {str(e)}"
+            }
     
     user_detail.save()
     
@@ -215,6 +284,6 @@ def edit_profile(request, userId: int, form: UpdateUserSchema = None, user_profi
             "last_login_session": user_detail.last_login_session,
             "previous_ip_address": user_detail.previous_ip_address,
             "status": user_detail.status,
-            "user_profile": user_detail.user_profile.url if user_detail.user_profile else None
+            "user_profile": user_detail.user_profile
         }
     }
