@@ -1,4 +1,4 @@
-from ninja import Schema
+from ninja import Schema, UploadedFile
 from .models import *
 from pydantic import BaseModel
 from typing import Optional, List
@@ -20,6 +20,7 @@ class UserDetailSchema(Schema):
     previous_ip_address: Optional[str] = None
     referral_code: Optional[str] = None
     status: Optional[str] = None
+    # role: "Client"
 
 class UserWalletResponseSchema(Schema):
     user: Optional[UserSchema]
@@ -42,7 +43,15 @@ class LoginUserSchema(BaseModel):
     password:str
 
 class UpdateUserSchema(Schema):
+    user_profile: UploadedFile = None
     name:str
+    phone_number: str 
+    is_verified: bool
+    tier: bool 
+    trading_fee_rate: str 
+    last_login_session: str 
+    previous_ip_address: str 
+    status: str
 
 class CreateUserDetailSchema(Schema):
     phone_number: str 
@@ -55,3 +64,4 @@ class CreateUserDetailSchema(Schema):
     previous_ip_address: str 
     referral_code: str
     status: str
+    role:str

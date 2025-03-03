@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -123,7 +124,7 @@ SUPABASE_URL="https://iimbltovdjhoifnmzims.supabase.co/"
 SUPABASE_API_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpbWJsdG92ZGpob2lmbm16aW1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAzOTc0NjcsImV4cCI6MjA1NTk3MzQ2N30.flZmftfwc_Jdo9HvFpJYR-QpAkhSbEq2LtbQhTxGBbk" # Avoid quotes
 SUPABASE_JWT_SECRET="gMiLvZB8hwGpG7N/4PXEDlTc9XfNAyr2R8UKoCjbhP0VU8HIUAucz8L4ozASZga2BmCEkTL/laIStmu6weXLGw=="
 SUPABASE_SERVICE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpbWJsdG92ZGpob2lmbm16aW1zIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MDM5NzQ2NywiZXhwIjoyMDU1OTczNDY3fQ.UAK50HpB3iz8EVWZM-bY9SbLDgriT6j4i2wevOKIFSc"
-
+SUPABASE_BUCKET_NAME = 'crypto_app'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -172,6 +173,13 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static')
+]
+
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = f'{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET_NAME}/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

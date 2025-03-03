@@ -5,10 +5,14 @@ from django.utils import timezone
 # Create your models here.
 
 class Role(models.Model):
-    role_name = models.CharField(max_length=200, null = True, blank = True)
+    Role = (
+        ('Admin', 'Admin'),
+        ('Client', 'Client'),
+    )
+    role = models.CharField(max_length=200, null = True, blank = True)
 
     def __str__(self):
-        return self.role_name
+        return self.role
     
 class User(models.Model):
     name = models.CharField(max_length=200, null = True, blank = True)
@@ -20,6 +24,7 @@ class User(models.Model):
     #     return self.name
     
 class UserDetail(models.Model):
+    user_profile= models.ImageField(upload_to='user_profile/', blank=True)
     user_id= models.OneToOneField(User,null = True, blank = True, on_delete=models.CASCADE)
     role_id=models.ManyToManyField(Role,null = True, blank = True )
     phone_number= models.CharField(max_length=200, null = True, blank = True)
