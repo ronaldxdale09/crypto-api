@@ -14,10 +14,11 @@ class Network(models.Model):
 
 
 class Cryptocurrency(models.Model):
-    symbol=models.CharField(max_length=20, null = True, blank = True)
-    id_pk=models.CharField(max_length=50, unique=True) #For API identifiers
-    is_tradable=models.BooleanField(default=True)
-    crypto_description=models.CharField(max_length=200, null = True, blank = True)
+    symbol = models.CharField(max_length=20, null=True, blank=True)
+    id_pk = models.CharField(max_length=50, unique=True)  # For API identifiers
+    name = models.CharField(max_length=100, null=True, blank=True)  # Added name field
+    is_tradable = models.BooleanField(default=True)
+    crypto_description = models.CharField(max_length=200, null=True, blank=True)
 
     def __str__(self):
         return self.symbol
