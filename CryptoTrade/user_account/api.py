@@ -171,23 +171,18 @@ def user_details(request, userId: int, form: CreateUserDetailSchema):
         "secret_phrase": user_detail.secret_phrase
     }
 
-
-
 #UPDATE
 #user edit profile after the signup using email and setting up the password
 @router.post('/edit_profile/user={userId}')
-def edit_profile(request, userId: int, form: UpdateUserSchema = None, user_profile: Optional[UploadedFile] = File(None)):
+def edit_profile(request, userId: int):
     from django.conf import settings
     
-    # Get or create User model
+    # Get user instance
     user_instance = get_object_or_404(User, id=userId)
-    referral_code = form.referral_code or RandomReferralCodeGenerator()
-    secret_phrase = form.secret_phrase or SecretPhraseGenerator()
     
     # Update User fields if provided
-    if form:
-        user_instance.name = form.name or user_instance.name
-        user_instance.email = form.email or user_instance.email
+    if name:
+        user_instance.name = name
         user_instance.save()
     
     # Get or create UserDetail
@@ -209,10 +204,6 @@ def edit_profile(request, userId: int, form: UpdateUserSchema = None, user_profi
             user_detail.previous_ip_address = form.previous_ip_address or user_detail.previous_ip_address
         if hasattr(form, 'status'):
             user_detail.status = form.status or user_detail.status
-        if hasattr(form, 'referral_code'):
-            user_detail.referral_code = referral_code or user_detail.referral_code
-        if hasattr(form, 'secret_phrase'):
-            user_detail.secret_phrase = secret_phrase or user_detail.secret_phrase
 
     # Upload profile image to Supabase Storage if provided
     if user_profile:
