@@ -53,27 +53,60 @@ class TransferRequestSchema(Schema):
 
 
 # Endpoints
-@router.get('/getWallet/')
-def get_user_wallet(request, user_id: int):
-    wallet_instance = Wallet.objects.filter(user_id=user_id).first()
-    if not wallet_instance:
-        return []
+@router.post('/create-wallet')
+def create_wallet_for_user(request, user_id: int):
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return {"error": "User not found"}
 
-    user_wallet_balance_instances = WalletBalance.objects.filter(wallet=wallet_instance).select_related('cryptocurrency')
+    # Create wallet instance
+    wallet = Wallet.objects.create()
+    wallet.user_id.add(user)
 
-    response_data = [
-        {
-            "wallet_id": wallet_instance.id,
-            "crypto_id": balance.cryptocurrency.id if balance.cryptocurrency else 0,
-            "crypto_name": balance.cryptocurrency.name if balance.cryptocurrency else "Unknown",
-            "crypto_symbol": balance.cryptocurrency.symbol if balance.cryptocurrency else "N/A",
-            "crypto_description": balance.cryptocurrency.crypto_description if balance.cryptocurrency else "No description available",
-            "network": balance.network.name if balance.network else "Unknown",
-            "balance": float(balance.balance) if balance.balance != 0 else 0.0
-        }
-        for balance in user_wallet_balance_instances
-    ]
+    # Initialize WalletBalance for each cryptocurrency
+    cryptocurrencies = Cryptocurrency.objects.all()
+    WalletBalance.objects.bulk_create([
+        WalletBalance(wallet=wallet, cryptocurrency=crypto, balance=0.0)
+        for crypto in cryptocurrencies
+    ])
+
+    return {
+        "success": "Wallet successfully created for the user!",
+        "user_id": user.id,
+        "wallet_id": wallet.id,
+        "cryptocurrencies": [crypto.symbol for crypto in cryptocurrencies]
+    }
+
+#Fetching user wallets
+@router.get('/getWallets/')
+def getUserWalletsNBalance(request, user_id: int):
+    wallets = Wallet.objects.filter(user_id=user_id)
+    if not wallets.exists():
+        return {"message": "No wallets found for this user"}
+
+    response_data = []
+    for wallet in wallets:
+        user_wallet_balance_instances = WalletBalance.objects.filter(wallet=wallet).select_related('cryptocurrency', 'network')
+        wallet_data = [
+            {
+                "wallet_id": wallet.id,
+                "crypto_id": balance.cryptocurrency.id if balance.cryptocurrency else 0,
+                "crypto_name": balance.cryptocurrency.name if balance.cryptocurrency else "Unknown",
+                "crypto_symbol": balance.cryptocurrency.symbol if balance.cryptocurrency else "N/A",
+                "crypto_description": balance.cryptocurrency.crypto_description if balance.cryptocurrency else "No description available",
+                "network": balance.network.name if balance.network else "Unknown",
+                "balance": float(balance.balance) if balance.balance != 0 else 0.0
+            }
+            for balance in user_wallet_balance_instances
+        ]
+        response_data.append({
+            "wallet_id": wallet.id,
+            "balances": wallet_data
+        })
+
     return response_data
+
 
 @router.get('/getWalletBalance', response=List[WalletBalanceSchema])
 def get_wallet_balance(request):
@@ -97,6 +130,8 @@ def get_wallet(request, wallet_id: int):
         "wallet_address": wallet.wallet_address,
         "is_active": wallet.is_active
     }
+
+
 
 @router.get('/wallet/{wallet_id}/balances', response=List[WalletBalanceSchema])
 def get_wallet_balances(request, wallet_id: int):
