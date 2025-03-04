@@ -73,7 +73,6 @@ def get_user_wallet(request, user_id: int):
         }
         for balance in user_wallet_balance_instances
     ]
-
     return response_data
 
 @router.get('/getWalletBalance', response=List[WalletBalanceSchema])
