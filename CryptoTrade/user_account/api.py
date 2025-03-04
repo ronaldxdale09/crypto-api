@@ -55,6 +55,7 @@ def user_information(request, user_id: int):
             "status": user_detail.status if user_detail else None,
         },
         "wallet": {
+            "wallet_id":wallet.id,
             "wallet_address": wallet.wallet_address if wallet else None,
             "available_balance": wallet.available_balance if wallet else None,
         },
