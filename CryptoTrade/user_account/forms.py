@@ -23,9 +23,10 @@ class UserDetailSchema(Schema):
     # role: "Client"
 
 class UserWalletResponseSchema(Schema):
-    user: Optional[UserSchema]
+    user: UserSchema
     user_detail: Optional[UserDetailSchema] = None
     wallet: Optional[WalletSchema] = None
+    wallet_balances: List[WalletBalanceSchema] = []
 
 
 class UserWalletResponseSchema(Schema):
@@ -52,8 +53,8 @@ class UpdateUserSchema(Schema):
     last_login_session: str 
     previous_ip_address: str 
     status: str
-    # referral_code: str
-    # secret_phrase: str 
+    referral_code: str
+    secret_phrase: str 
 
 class CreateUserDetailSchema(Schema):
     phone_number: str 

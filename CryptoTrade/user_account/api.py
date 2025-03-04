@@ -29,44 +29,47 @@ def get_user(request):
     users = User.objects.all()
     return [UserSchema(name=user.name, email=user.email, password=user.password) for user in users]
 
-@router.get('user={user_id}', response=UserWalletResponseSchema)
-def user(request, user_id: int):
+@router.get('getUserInformation/{user_id}')
+def user_information(request, user_id: int):
     user = get_object_or_404(User, id=user_id)
-    user_detail_instance = UserDetail.objects.filter(user_id=user_id).first()
-    wallet_instance = Wallet.objects.filter(user_id=user).first()
-    
-    wallet_balances = WalletBalance.objects.filter(wallet=wallet_instance) if wallet_instance else []
+    user_detail = UserDetail.objects.filter(user_id=user_id).first()
+    wallet = Wallet.objects.filter(user_id=user).first()
+    wallet_balances = WalletBalance.objects.filter(wallet=wallet).select_related('cryptocurrency') if wallet else []
 
-    balance_data = [
-        {
-            "wallet_id": balance.wallet.id if balance.wallet else None,
-            "crypto_id": balance.cryptocurrency.id if balance.cryptocurrency else None,
-            "network_id": balance.network.id if balance.network else None,
-            "balance": float(balance.balance)
-        }
-        for balance in wallet_balances
-    ]
-
-    return {
-        "user": {"email": user.email},
+    # Format the data for JSON response
+    data = {
+        "user": {
+            "name": user.name,
+            "email": user.email
+        },
         "user_detail": {
-            "phone_number": user_detail_instance.phone_number if user_detail_instance else None,
-            "secret_phrase": user_detail_instance.secret_phrase if user_detail_instance else None,
-            "is_verified": user_detail_instance.is_verified if user_detail_instance else None,
-            "tier": user_detail_instance.tier if user_detail_instance else None,
-            "trading_fee_rate": user_detail_instance.trading_fee_rate if user_detail_instance else None,
-            "ip_address": user_detail_instance.ip_address if user_detail_instance else None,
-            "last_login_session": user_detail_instance.last_login_session if user_detail_instance else None,
-            "previous_ip_address": user_detail_instance.previous_ip_address if user_detail_instance else None,
-            "referral_code": user_detail_instance.referral_code if user_detail_instance else None,
-            "status": user_detail_instance.status if user_detail_instance else None,
-        } if user_detail_instance else None,
+            "phone_number": user_detail.phone_number if user_detail else None,
+            "is_verified": user_detail.is_verified if user_detail else None,
+            "secret_phrase": user_detail.secret_phrase if user_detail else None,
+            "tier": user_detail.tier if user_detail else None,
+            "trading_fee": user_detail.trading_fee_rate if user_detail else None,
+            "ip_address": user_detail.ip_address if user_detail else None,
+            "last_login_sesson": user_detail.last_login_session if user_detail else None,
+            "previous_ip_address": user_detail.previous_ip_address if user_detail else None,
+            "referral_code": user_detail.referral_code if user_detail else None,
+            "status": user_detail.status if user_detail else None,
+        },
         "wallet": {
-            "wallet_id": wallet_instance.id if wallet_instance else None,
-            "balances": balance_data
-        } if wallet_instance else None,
+            "wallet_address": wallet.wallet_address if wallet else None,
+            "available_balance": wallet.available_balance if wallet else None,
+        },
+        "wallet_balances": [
+            {
+                "crypto_id": balance.cryptocurrency.id if balance.cryptocurrency else None,
+                "crypto_symbol": balance.cryptocurrency.symbol if balance.cryptocurrency else "N/A",
+                "network": balance.network.name if balance.network else "Unknown",
+                "balance": float(balance.balance) if balance.balance != 0 else 0.0    
+            }
+            for balance in wallet_balances
+        ]
     }
 
+    return JsonResponse(data)
 
 
 
@@ -178,6 +181,8 @@ def edit_profile(request, userId: int, form: UpdateUserSchema = None, user_profi
     
     # Get or create User model
     user_instance = get_object_or_404(User, id=userId)
+    referral_code = form.referral_code or RandomReferralCodeGenerator()
+    secret_phrase = form.secret_phrase or SecretPhraseGenerator()
     
     # Update User fields if provided
     if form:
@@ -204,12 +209,17 @@ def edit_profile(request, userId: int, form: UpdateUserSchema = None, user_profi
             user_detail.previous_ip_address = form.previous_ip_address or user_detail.previous_ip_address
         if hasattr(form, 'status'):
             user_detail.status = form.status or user_detail.status
+        if hasattr(form, 'referral_code'):
+            user_detail.referral_code = referral_code or user_detail.referral_code
+        if hasattr(form, 'secret_phrase'):
+            user_detail.secret_phrase = secret_phrase or user_detail.secret_phrase
 
     # Upload profile image to Supabase Storage if provided
     if user_profile:
         try:
             # Read file data
             file_content = user_profile.read()
+            print(file_content)
             file_size = len(file_content)
             file_type = user_profile.content_type
             
@@ -284,6 +294,8 @@ def edit_profile(request, userId: int, form: UpdateUserSchema = None, user_profi
             "last_login_session": user_detail.last_login_session,
             "previous_ip_address": user_detail.previous_ip_address,
             "status": user_detail.status,
-            "user_profile": user_detail.user_profile
+            "user_profile": user_detail.user_profile,
+            "secret_phrase": user_detail.secret_phrase,
+            "referral_code": user_detail.referral_code,
         }
     }

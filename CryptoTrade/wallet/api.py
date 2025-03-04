@@ -13,7 +13,6 @@ import uuid
 
 router = Router()
 
-
 # Schema definitions for request and response
 class WalletBalanceSchema(Schema):
     wallet_id: int
@@ -54,6 +53,29 @@ class TransferRequestSchema(Schema):
 
 
 # Endpoints
+@router.get('/getWallet/')
+def get_user_wallet(request, user_id: int):
+    wallet_instance = Wallet.objects.filter(user_id=user_id).first()
+    if not wallet_instance:
+        return []
+
+    user_wallet_balance_instances = WalletBalance.objects.filter(wallet=wallet_instance).select_related('cryptocurrency')
+
+    response_data = [
+        {
+            "wallet_id": wallet_instance.id,
+            "crypto_id": balance.cryptocurrency.id if balance.cryptocurrency else 0,
+            "crypto_name": balance.cryptocurrency.name if balance.cryptocurrency else "Unknown",
+            "crypto_symbol": balance.cryptocurrency.symbol if balance.cryptocurrency else "N/A",
+            "crypto_description": balance.cryptocurrency.crypto_description if balance.cryptocurrency else "No description available",
+            "network": balance.network.name if balance.network else "Unknown",
+            "balance": float(balance.balance) if balance.balance != 0 else 0.0
+        }
+        for balance in user_wallet_balance_instances
+    ]
+
+    return response_data
+
 @router.get('/getWalletBalance', response=List[WalletBalanceSchema])
 def get_wallet_balance(request):
     """Get all wallet balances."""

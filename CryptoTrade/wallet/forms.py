@@ -8,6 +8,7 @@ from datetime import datetime
 class WalletBalanceSchema(Schema):
     wallet_id: int
     crypto_id: int
+    network: str
     balance: Decimal
 
 class WalletSchema(Schema):
