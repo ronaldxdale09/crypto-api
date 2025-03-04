@@ -29,7 +29,7 @@ def get_user(request):
     users = User.objects.all()
     return [UserSchema(name=user.name, email=user.email, password=user.password) for user in users]
 
-@router.get('getUserInformation/user={user_id}')
+@router.get('getUserInformation/')
 def user_information(request, user_id: int):
     user = get_object_or_404(User, id=user_id)
     user_detail = UserDetail.objects.filter(user_id=user_id).first()
