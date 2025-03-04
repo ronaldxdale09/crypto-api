@@ -31,6 +31,7 @@ class Transaction(models.Model):
         ('deposit', 'Deposit'),
         ('withdraw', 'Withdraw'),
         ('transfer', 'Transfer'),
+        ('send', 'Send'),  # Added new transaction type for explicit send operations
     )
     
     TRANSACTION_STATUS = (
@@ -38,6 +39,8 @@ class Transaction(models.Model):
         ('completed', 'Completed'),
         ('failed', 'Failed'),
         ('cancelled', 'Cancelled'),
+        ('processing', 'Processing'),  # Added status for transactions being processed
+        ('confirming', 'Confirming'),  # Added status for blockchain confirmations
     )
     
     wallet_id = models.ManyToManyField(Wallet, blank=True, related_name="transactions")
@@ -50,6 +53,9 @@ class Transaction(models.Model):
     destination_address = models.CharField(max_length=200, null=True, blank=True)
     cryptocurrency = models.ForeignKey(Cryptocurrency, on_delete=models.CASCADE, null=True, blank=True)
     network = models.ForeignKey(Network, on_delete=models.CASCADE, null=True, blank=True)
+    memo = models.CharField(max_length=200, null=True, blank=True)  # Added field for memo/tag
+    confirmation_count = models.IntegerField(default=0)  # Added field to track blockchain confirmations
+    estimated_completion_time = models.DateTimeField(null=True, blank=True)  # Added field for estimated completion
 
     def __str__(self):
         return f"{self.type} - {self.amount}"
@@ -77,3 +83,24 @@ class MarketPrice(models.Model):
 
     def __str__(self):
         return f"{self.cryptocurrency.symbol}: ${self.price_usd}"
+
+class NetworkFee(models.Model):
+    """Model to store current network fee estimates for cryptocurrencies"""
+    FEE_SPEED_CHOICES = (
+        ('slow', 'Slow'),
+        ('standard', 'Standard'),
+        ('fast', 'Fast'),
+    )
+    
+    network = models.ForeignKey(Network, on_delete=models.CASCADE)
+    cryptocurrency = models.ForeignKey(Cryptocurrency, on_delete=models.CASCADE)
+    fee_rate = models.DecimalField(max_digits=24, decimal_places=8)  # Fee rate in the cryptocurrency's native units
+    fee_speed = models.CharField(max_length=10, choices=FEE_SPEED_CHOICES, default='standard')
+    estimated_time = models.CharField(max_length=50, null=True, blank=True)  # Human-readable time estimate
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('network', 'cryptocurrency', 'fee_speed')
+        
+    def __str__(self):
+        return f"{self.cryptocurrency.symbol} on {self.network.name} - {self.fee_speed} fee"
