@@ -51,6 +51,14 @@ class TransferRequestSchema(Schema):
     crypto_id: int
     amount: Decimal
 
+class SendRequestSchema(Schema):
+    wallet_id: int
+    crypto_id: int
+    network_id: int
+    amount: Decimal
+    recipient_address: str
+    memo: Optional[str] = None  # Optional memo/tag field for certain blockchains
+
 
 # Endpoints
 @router.get('/getWallet/')
@@ -330,3 +338,152 @@ def get_market_prices(request):
         })
     
     return results
+
+
+
+# Add this new Schema to your existing Schema definitions
+class SendRequestSchema(Schema):
+    wallet_id: int
+    crypto_id: int
+    network_id: int
+    amount: Decimal
+    recipient_address: str
+    memo: Optional[str] = None  # Optional memo/tag field for certain blockchains
+
+# Add this new endpoint to your router
+@router.post('/send')
+def send_crypto(request, form: SendRequestSchema):
+    """Send cryptocurrency to an external wallet address."""
+    wallet = get_object_or_404(Wallet, id=form.wallet_id)
+    crypto = get_object_or_404(Cryptocurrency, id=form.crypto_id)
+    network = get_object_or_404(Network, id=form.network_id)
+    
+    # Check if wallet has enough balance
+    try:
+        wallet_balance = WalletBalance.objects.get(
+            wallet=wallet, 
+            cryptocurrency=crypto,
+            network=network
+        )
+    except WalletBalance.DoesNotExist:
+        return {"error": "No balance found for this cryptocurrency on the selected network"}
+    
+    if wallet_balance.balance < form.amount:
+        return {"error": "Insufficient balance"}
+    
+    # Validate recipient address format (in a real app, this would be more sophisticated)
+    if not form.recipient_address or len(form.recipient_address) < 10:
+        return {"error": "Invalid recipient address"}
+    
+    # Calculate transaction fee based on the network
+    # This could be more complex in a real application with dynamic fees
+    fee = form.amount * Decimal('0.001')  # Example: 0.1% fee
+    
+    # Ensure total amount with fee doesn't exceed balance
+    if wallet_balance.balance < (form.amount + fee):
+        return {"error": f"Insufficient balance to cover amount plus fee ({fee} {crypto.symbol})"}
+    
+    # Create transaction record
+    transaction = Transaction.objects.create(
+        type="withdraw",  # Using withdraw type for external sends
+        amount=form.amount,
+        fee=fee,
+        status="pending",
+        destination_address=form.recipient_address,
+        cryptocurrency=crypto,
+        network=network
+    )
+    transaction.wallet_id.add(wallet)
+    
+    # Generate a mock transaction hash (in a real app, this would come from blockchain)
+    tx_hash = f"{crypto.symbol.lower()}_tx_{uuid.uuid4().hex}"
+    transaction.tx_hash = tx_hash
+    transaction.save()
+    
+    # Update wallet balance (deducting both amount and fee)
+    wallet_balance.balance -= (form.amount + fee)
+    wallet_balance.last_transaction = transaction
+    wallet_balance.save()
+    
+    # In a real application, this would trigger an actual blockchain transaction
+    # For now, we'll just return the transaction details
+    
+    return {
+        "success": True,
+        "transaction_id": transaction.id,
+        "tx_hash": tx_hash,
+        "amount": form.amount,
+        "fee": fee,
+        "recipient": form.recipient_address,
+        "crypto": crypto.symbol,
+        "network": network.name,
+        "status": "pending",
+        "estimated_completion_time": "5-30 minutes"  # Mock estimation
+    }
+
+# Add this endpoint to get transaction details by ID
+@router.get('/transaction/{transaction_id}')
+def get_transaction_details(request, transaction_id: int):
+    """Get detailed information about a specific transaction."""
+    transaction = get_object_or_404(Transaction, id=transaction_id)
+    
+    # Get associated wallets
+    wallets = transaction.wallet_id.all()
+    wallet_ids = [w.id for w in wallets]
+    
+    return {
+        "id": transaction.id,
+        "type": transaction.type,
+        "amount": transaction.amount,
+        "fee": transaction.fee,
+        "status": transaction.status,
+        "timestamp": transaction.timestamp,
+        "tx_hash": transaction.tx_hash,
+        "destination_address": transaction.destination_address,
+        "cryptocurrency": {
+            "id": transaction.cryptocurrency.id if transaction.cryptocurrency else None,
+            "symbol": transaction.cryptocurrency.symbol if transaction.cryptocurrency else None,
+            "name": transaction.cryptocurrency.name if transaction.cryptocurrency else None
+        },
+        "network": {
+            "id": transaction.network.id if transaction.network else None,
+            "name": transaction.network.name if transaction.network else None
+        },
+        "wallet_ids": wallet_ids
+    }
+
+# Add this endpoint to get estimated network fees for a cryptocurrency
+@router.get('/network/{network_id}/fees')
+def get_network_fees(request, network_id: int, crypto_id: int):
+    """
+    Get current network fee estimates for sending a cryptocurrency.
+    In a real application, this would fetch actual network fee data.
+    """
+    network = get_object_or_404(Network, id=network_id)
+    crypto = get_object_or_404(Cryptocurrency, id=crypto_id)
+    
+    # Mock fee data - in a real app, this would come from network-specific APIs
+    # For example, Bitcoin would use different fee rates based on confirmation time
+    
+    # Example fee structure (would be different for each blockchain)
+    fee_options = {
+        "slow": {
+            "fee_rate": "0.0005",  # 0.05%
+            "estimated_time": "30-60 minutes"
+        },
+        "standard": {
+            "fee_rate": "0.001",  # 0.1%
+            "estimated_time": "10-30 minutes"
+        },
+        "fast": {
+            "fee_rate": "0.002",  # 0.2%
+            "estimated_time": "1-10 minutes"
+        }
+    }
+    
+    return {
+        "cryptocurrency": crypto.symbol,
+        "network": network.name,
+        "fee_options": fee_options,
+        "updated_at": "2025-03-03T12:00:00Z"  # Mock timestamp
+    }
