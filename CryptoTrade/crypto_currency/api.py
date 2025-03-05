@@ -170,7 +170,7 @@ def get_cryptocurrencies(request):
                 id=crypto.id,
                 symbol=crypto.symbol,
                 name=crypto.name,
-                price=crypto.price,
+                price=round(crypto.price, 2),  # Round to 2 decimal places
                 price_change_24h=crypto.price_change_24h,
                 crypto_description=crypto.crypto_description or f"{crypto.name} cryptocurrency",
                 logo_path=get_crypto_logo(crypto.symbol)
