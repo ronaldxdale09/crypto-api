@@ -1,9 +1,9 @@
-# crypto_currency/api.py - Updated for Supabase Storage
+# crypto_currency/api.py - Updated for Direct Logo URLs
 
 from ninja import Router
 from .models import *
 from .forms import *
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import requests
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -11,6 +11,24 @@ from django.conf import settings
 from django.shortcuts import get_object_or_404
 import json
 import random
+
+# Global logo paths dictionary for cryptocurrencies
+CRYPTO_LOGO_PATHS = {
+    "BTC": "https://shorturl.at/jbnPp",
+    "DOGE": "https://iimbltovdjhoifnmzims.supabase.co/storage/v1/object/sign/crypto_app/crypto/Dogecoin.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJjcnlwdG9fYXBwL2NyeXB0by9Eb2dlY29pbi5wbmciLCJpYXQiOjE3NDExMDA0NzgsImV4cCI6MTc0OTY1NDA3OH0.uupInNHoBmUoa-s-EhNcnthZBz_1nbwIum1goCd0KW8",
+    "ETH": "https://iimbltovdjhoifnmzims.supabase.co/storage/v1/object/sign/crypto_app/crypto/ethereum.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJjcnlwdG9fYXBwL2NyeXB0by9ldGhlcmV1bS5wbmciLCJpYXQiOjE3NDExMDA1MDMsImV4cCI6MTc0OTY1NDEwM30.prgNNelliJr75t8RTFC1u--DSWDJBCS0A9HSTiZz2Ew",
+    "SOL": "https://iimbltovdjhoifnmzims.supabase.co/storage/v1/object/sign/crypto_app/crypto/Solana.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJjcnlwdG9fYXBwL2NyeXB0by9Tb2xhbmEucG5nIiwiaWF0IjoxNzQxMTAwNTI3LCJleHAiOjE3NDk2NTQxMjd9.VbbJ14SUdI6sw0st83Bli9YNHOH4Da-LRln5e2vulWs",
+    "XRP": "https://iimbltovdjhoifnmzims.supabase.co/storage/v1/object/sign/crypto_app/crypto/XRP.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJjcnlwdG9fYXBwL2NyeXB0by9YUlAucG5nIiwiaWF0IjoxNzQxMTAwNTUwLCJleHAiOjE3NDk2NTQxNTB9.LMoEs_Wqvj5KbprILXSJQSLmRGZUYtqHB7ZOv2xRQoQ"
+}
+
+# Global coin names dictionary
+COIN_NAMES = {
+    "BTC": "Bitcoin",
+    "DOGE": "Dogecoin", 
+    "ETH": "Ethereum",
+    "SOL": "Solana",
+    "XRP": "XRP"
+}
 
 # Function to provide placeholder prices for testing
 def get_placeholder_price(symbol):
@@ -24,14 +42,16 @@ def get_placeholder_price(symbol):
     }
     return price_map.get(symbol, Decimal('1.00'))
 
+# Helper function to get logo URL for a cryptocurrency
+def get_crypto_logo(symbol):
+    """Get the logo URL for a cryptocurrency symbol"""
+    return CRYPTO_LOGO_PATHS.get(symbol, "")
+
 router = Router()
 
 # FreeCryptoAPI configuration
 API_BASE_URL = "https://api.freecryptoapi.com/v1"
 API_KEY = "gbkiifey6fo94cbnvpw3"  # Replace with your API key or store in settings
-
-# Supabase Storage Base URL - used for accessing logos
-SUPABASE_STORAGE_URL = f"{settings.SUPABASE_URL}/storage/v1/object/public/{settings.SUPABASE_BUCKET_NAME}"
 
 def get_headers():
     return {
@@ -45,22 +65,6 @@ def get_cryptocurrencies(request):
     """Get list of available cryptocurrencies"""
     # Define the specific coins we want to focus on
     focus_coins = ["BTC", "DOGE", "ETH", "SOL", "XRP"]
-    coin_names = {
-        "BTC": "Bitcoin",
-        "DOGE": "Dogecoin", 
-        "ETH": "Ethereum",
-        "SOL": "Solana",
-        "XRP": "XRP"
-    }
-    
-    # Define logo paths for each coin (relative to the bucket)
-    logo_paths = {
-        "BTC": "/crypto/BitCoin.png",
-        "DOGE": "/crypto/Dogecoin.png",
-        "ETH": "/crypto/ethereum.png",
-        "SOL": "/crypto/Solana.png",
-        "XRP": "/crypto/XRP.png"
-    }
     
     try:
         # Check if we have these coins in our database already
@@ -70,10 +74,10 @@ def get_cryptocurrencies(request):
                 Cryptocurrency.objects.create(
                     symbol=symbol,
                     id_pk=symbol.lower(),
-                    name=coin_names.get(symbol, symbol),
+                    name=COIN_NAMES.get(symbol, symbol),
                     is_tradable=True,
-                    crypto_description=f"{coin_names.get(symbol, symbol)} cryptocurrency",
-                    logo_path=logo_paths.get(symbol, ""),
+                    crypto_description=f"{COIN_NAMES.get(symbol, symbol)} cryptocurrency",
+                    logo_path=get_crypto_logo(symbol),
                     price=Decimal('0.0'),
                     price_change_24h=Decimal('0.0')
                 )
@@ -83,11 +87,11 @@ def get_cryptocurrencies(request):
                 updated = False
                 
                 if not crypto.logo_path:
-                    crypto.logo_path = logo_paths.get(symbol, "")
+                    crypto.logo_path = get_crypto_logo(symbol)
                     updated = True
                     
                 if not crypto.name or crypto.name == "null":
-                    crypto.name = coin_names.get(symbol, symbol)
+                    crypto.name = COIN_NAMES.get(symbol, symbol)
                     updated = True
                     
                 if not crypto.price:
@@ -137,7 +141,7 @@ def get_cryptocurrencies(request):
                 
                 # Make sure name is never null
                 if not crypto.name or crypto.name == "null":
-                    crypto.name = coin_names.get(symbol, symbol)
+                    crypto.name = COIN_NAMES.get(symbol, symbol)
                     
                 crypto.last_updated = datetime.now()
                 crypto.save()
@@ -153,7 +157,7 @@ def get_cryptocurrencies(request):
                 price=crypto.price,
                 price_change_24h=crypto.price_change_24h,
                 crypto_description=crypto.crypto_description or f"{crypto.name} cryptocurrency",
-                logo_path=f"{SUPABASE_STORAGE_URL}{crypto.logo_path}" if crypto.logo_path else ""
+                logo_path=get_crypto_logo(crypto.symbol)
             )
             for crypto in cryptocurrency_instances
         ]
@@ -169,7 +173,7 @@ def get_cryptocurrencies(request):
                 price=crypto.price,
                 price_change_24h=crypto.price_change_24h,
                 crypto_description=crypto.crypto_description or f"{crypto.name} cryptocurrency",
-                logo_path=f"{SUPABASE_STORAGE_URL}{crypto.logo_path}" if crypto.logo_path else ""
+                logo_path=get_crypto_logo(crypto.symbol)
             )
             for crypto in cryptocurrency_instances
         ]
@@ -179,24 +183,6 @@ def get_coin_details(request, symbol: str):
     """Get detailed information about a specific cryptocurrency including its networks"""
     symbol = symbol.upper()
     
-    # Define logo paths for coins (relative to the bucket)
-    logo_paths = {
-        "BTC": "/crypto/BitCoin.png",
-        "DOGE": "/crypto/Dogecoin.png",
-        "ETH": "/crypto/ethereum.png",
-        "SOL": "/crypto/Solana.png",
-        "XRP": "/crypto/XRP.png"
-    }
-    
-    # Define coin names
-    coin_names = {
-        "BTC": "Bitcoin",
-        "DOGE": "Dogecoin", 
-        "ETH": "Ethereum",
-        "SOL": "Solana",
-        "XRP": "XRP"
-    }
-    
     # First check if we have the coin in our database
     try:
         crypto = Cryptocurrency.objects.get(symbol=symbol)
@@ -205,9 +191,9 @@ def get_coin_details(request, symbol: str):
         crypto = Cryptocurrency.objects.create(
             symbol=symbol,
             id_pk=symbol.lower(),
-            name=coin_names.get(symbol, symbol),
+            name=COIN_NAMES.get(symbol, symbol),
             is_tradable=True,
-            logo_path=logo_paths.get(symbol, ""),
+            logo_path=get_crypto_logo(symbol),
             price=get_placeholder_price(symbol),
             price_change_24h=Decimal(str(random.uniform(-5.0, 5.0)))
         )
@@ -251,7 +237,7 @@ def get_coin_details(request, symbol: str):
                 name=cn.network.name,
                 acronym=cn.network.acronym,
                 description=cn.network.network_description,
-                logo_path=f"{SUPABASE_STORAGE_URL}{cn.network.logo_path}" if cn.network.logo_path else "",
+                logo_path=cn.network.logo_path,  # Keep network logo as is
                 withdrawal_fee=cn.withdrawal_fee,
                 min_withdrawal=cn.min_withdrawal,
                 is_withdrawal_enabled=cn.is_withdrawal_enabled
@@ -270,7 +256,7 @@ def get_coin_details(request, symbol: str):
             last_updated=crypto.last_updated,
             crypto_description=crypto.crypto_description or f"{crypto.name} cryptocurrency",
             is_tradable=crypto.is_tradable,
-            logo_path=f"{SUPABASE_STORAGE_URL}{crypto.logo_path}" if crypto.logo_path else "",
+            logo_path=get_crypto_logo(crypto.symbol),
             networks=networks
         )
     
@@ -287,7 +273,7 @@ def get_coin_details(request, symbol: str):
                 name=cn.network.name,
                 acronym=cn.network.acronym,
                 description=cn.network.network_description,
-                logo_path=f"{SUPABASE_STORAGE_URL}{cn.network.logo_path}" if cn.network.logo_path else "",
+                logo_path=cn.network.logo_path,  # Keep network logo as is
                 withdrawal_fee=cn.withdrawal_fee,
                 min_withdrawal=cn.min_withdrawal,
                 is_withdrawal_enabled=cn.is_withdrawal_enabled
@@ -306,7 +292,7 @@ def get_coin_details(request, symbol: str):
             last_updated=crypto.last_updated,
             crypto_description=crypto.crypto_description or f"{crypto.name} cryptocurrency",
             is_tradable=crypto.is_tradable,
-            logo_path=f"{SUPABASE_STORAGE_URL}{crypto.logo_path}" if crypto.logo_path else "",
+            logo_path=get_crypto_logo(crypto.symbol),
             networks=networks
         )
 
@@ -362,7 +348,7 @@ def get_user_assets(request, user_id: int):
                     last_updated=crypto.last_updated,
                     crypto_description=crypto.crypto_description,
                     is_tradable=crypto.is_tradable,
-                    logo_path=f"{SUPABASE_STORAGE_URL}{crypto.logo_path}" if crypto.logo_path else ""
+                    logo_path=get_crypto_logo(crypto.symbol)
                 )
             )
         
@@ -533,7 +519,6 @@ def convert_crypto(request, conversion_data: ConversionRequestSchema):
             exchange_rate=Decimal(0)
         )
     
-
 @router.get('/getNetworks/{symbol}', response=List[NetworkSchema])
 def get_networks(request, symbol: str):
     """Get available networks for a specific cryptocurrency"""
@@ -550,7 +535,7 @@ def get_networks(request, symbol: str):
                 name=cn.network.name,
                 acronym=cn.network.acronym,
                 description=cn.network.network_description,
-                logo_path=f"{SUPABASE_STORAGE_URL}{cn.network.logo_path}" if cn.network.logo_path else "",
+                logo_path=cn.network.logo_path,  # Keep network logo as is
                 withdrawal_fee=cn.withdrawal_fee,
                 min_withdrawal=cn.min_withdrawal,
                 is_withdrawal_enabled=cn.is_withdrawal_enabled
@@ -560,7 +545,6 @@ def get_networks(request, symbol: str):
         # Return empty list on error
         return []
     
-
 @router.get('/getNetworkDetails/{network_id}', response=NetworkDetailSchema)
 def get_network_details(request, network_id: int, cryptocurrency_id: Optional[int] = None):
     """Get detailed information about a network, optionally for a specific cryptocurrency"""
