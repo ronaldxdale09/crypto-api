@@ -13,8 +13,15 @@ import uuid
 
 router = Router()
 
+CRYPTO_LOGO_PATHS = {
+    "BTC": "https://shorturl.at/jbnPp",
+    "DOGE": "https://iimbltovdjhoifnmzims.supabase.co/storage/v1/object/sign/crypto_app/crypto/Dogecoin.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJjcnlwdG9fYXBwL2NyeXB0by9Eb2dlY29pbi5wbmciLCJpYXQiOjE3NDExMDA0NzgsImV4cCI6MTc0OTY1NDA3OH0.uupInNHoBmUoa-s-EhNcnthZBz_1nbwIum1goCd0KW8",
+    "ETH": "https://iimbltovdjhoifnmzims.supabase.co/storage/v1/object/sign/crypto_app/crypto/ethereum.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJjcnlwdG9fYXBwL2NyeXB0by9ldGhlcmV1bS5wbmciLCJpYXQiOjE3NDExMDA1MDMsImV4cCI6MTc0OTY1NDEwM30.prgNNelliJr75t8RTFC1u--DSWDJBCS0A9HSTiZz2Ew",
+    "SOL": "https://iimbltovdjhoifnmzims.supabase.co/storage/v1/object/sign/crypto_app/crypto/Solana.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJjcnlwdG9fYXBwL2NyeXB0by9Tb2xhbmEucG5nIiwiaWF0IjoxNzQxMTAwNTI3LCJleHAiOjE3NDk2NTQxMjd9.VbbJ14SUdI6sw0st83Bli9YNHOH4Da-LRln5e2vulWs",
+    "XRP": "https://iimbltovdjhoifnmzims.supabase.co/storage/v1/object/sign/crypto_app/crypto/XRP.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJjcnlwdG9fYXBwL2NyeXB0by9YUlAucG5nIiwiaWF0IjoxNzQxMTAwNTUwLCJleHAiOjE3NDk2NTQxNTB9.LMoEs_Wqvj5KbprILXSJQSLmRGZUYtqHB7ZOv2xRQoQ"
+}
 # Schema definitions for request and response
-class WalletBalanceSchema(Schema):
+class UserAssetSchema(Schema):
     wallet_id: int
     crypto_id: int
     balance: Decimal
@@ -72,10 +79,10 @@ def create_wallet_for_user(request, user_id: int):
     wallet = Wallet.objects.create()
     wallet.user_id.add(user)
 
-    # Initialize WalletBalance for each cryptocurrency
+    # Initialize UserAsset for each cryptocurrency
     cryptocurrencies = Cryptocurrency.objects.all()
-    WalletBalance.objects.bulk_create([
-        WalletBalance(wallet=wallet, cryptocurrency=crypto, balance=0.0)
+    UserAsset.objects.bulk_create([
+        UserAsset(wallet=wallet, cryptocurrency=crypto, balance=0.0)
         for crypto in cryptocurrencies
     ])
 
@@ -95,7 +102,7 @@ def getUserWalletsNBalance(request, user_id: int):
 
     response_data = []
     for wallet in wallets:
-        user_wallet_balance_instances = WalletBalance.objects.filter(wallet=wallet).select_related('cryptocurrency', 'network')
+        user_wallet_balance_instances = UserAsset.objects.filter(wallet=wallet).select_related('cryptocurrency', 'network')
         wallet_data = [
             {
                 "wallet_id": wallet.id,
@@ -116,10 +123,10 @@ def getUserWalletsNBalance(request, user_id: int):
     return response_data
 
 
-@router.get('/getWalletBalance', response=List[WalletBalanceSchema])
-def get_wallet_balance(request):
-    """Get all wallet balances."""
-    balances = WalletBalance.objects.all()
+@router.get('/getUserAsset', response=List[UserAssetSchema])
+def get_user_asset(request):
+    """Get all user_asset."""
+    balances = UserAsset.objects.all()
     return [
         {
             "wallet_id": balance.wallet.id,
@@ -138,21 +145,76 @@ def get_wallet(request, wallet_id: int):
         "wallet_address": wallet.wallet_address,
         "is_active": wallet.is_active
     }
+#get selecting the default wallet
+@router.get('/user_asset/{user_id}')
+def getUserAsset(request, user_id: int):
+    wallet_instance = Wallet.objects.get(user_id=user_id)
+    
+    # Get all user assets tied to the wallet
+    user_assets = UserAsset.objects.select_related('cryptocurrency').filter(wallet=wallet_instance)
+    
+    # Build the response data
+    data = []
+    for asset in user_assets:
+        crypto = asset.cryptocurrency
+        logo_url = CRYPTO_LOGO_PATHS.get(crypto.symbol, "")
+        
+        data.append({
+            "wallet_id": wallet_instance.id,
+            "cryptocurrency": {
+                "id": crypto.id,
+                "symbol": crypto.symbol,
+                "name": crypto.name,
+                "price": str(crypto.price),
+                "logo_url": logo_url
+            },
+            "balance": str(asset.balance or Decimal('0.0')),
+            "updated_at": asset.updated_at,
+        })
+        
+    return JsonResponse({"status": "success", "data": data})
+
+#can select wallet
+@router.get('/user_asset/{user_id}/{wallet_id}')
+def getUserWalletAsset(request, user_id: int, wallet_id:int):
+        wallet_instance = Wallet.objects.get(user_id=user_id, id=wallet_id)
+        
+        user_assets = UserAsset.objects.select_related('cryptocurrency').filter(wallet=wallet_instance)
+        
+        data = []
+        for asset in user_assets:
+            crypto = asset.cryptocurrency
+            logo_url = CRYPTO_LOGO_PATHS.get(crypto.symbol, "")
+
+            data.append({
+                "wallet_id": wallet_instance.id,
+                "cryptocurrency": {
+                    "id": crypto.id,
+                    "symbol": crypto.symbol,
+                    "name": crypto.name,
+                    "price": str(crypto.price),
+                    "logo_url": logo_url
+                },
+                "balance": str(asset.balance or Decimal('0.0')),
+                "updated_at": asset.updated_at.isoformat(),
+            })
+        
+        return JsonResponse({"status": "success", "data": data})
 
 
 
-@router.get('/wallet/{wallet_id}/balances', response=List[WalletBalanceSchema])
-def get_wallet_balances(request, wallet_id: int):
-    """Get all cryptocurrency balances for a specific wallet."""
-    wallet = get_object_or_404(Wallet, id=wallet_id)
-    balances = WalletBalance.objects.filter(wallet=wallet)
-    return [
-        {
-            "wallet_id": balance.wallet.id,
-            "crypto_id": balance.cryptocurrency.id,
-            "balance": balance.balance
-        } for balance in balances
-    ]
+# @router.get('/wallet/{wallet_id}/balances', response=List[UserAssetSchema])
+# def get_wallet_balances(request, wallet_id: int):
+#     """Get all cryptocurrency balances for a specific wallet."""
+#     wallet = get_object_or_404(Wallet, id=wallet_id)
+#     balances = UserAsset.objects.filter(wallet=wallet)
+#     return [
+#         {
+#             "wallet_id": balance.wallet.id,
+#             "crypto_id": balance.cryptocurrency.id,
+#             "balance": balance.balance
+#         } for balance in balances
+#     ]
 
 @router.get('/wallet/{wallet_id}/transactions', response=List[TransactionSchema])
 def get_wallet_transactions(request, wallet_id: int):
@@ -179,8 +241,8 @@ def withdraw(request, form: WithdrawRequestSchema):
     
     # Check if wallet has enough balance
     try:
-        wallet_balance = WalletBalance.objects.get(wallet=wallet, cryptocurrency=crypto)
-    except WalletBalance.DoesNotExist:
+        wallet_balance = UserAsset.objects.get(wallet=wallet, cryptocurrency=crypto)
+    except UserAsset.DoesNotExist:
         return {"error": "No balance found for this cryptocurrency"}
     
     if wallet_balance.balance < form.amount:
@@ -246,15 +308,15 @@ def transfer_crypto(request, form: TransferRequestSchema):
     
     # Check if source wallet has enough balance
     try:
-        from_balance = WalletBalance.objects.get(wallet=from_wallet, cryptocurrency=crypto)
-    except WalletBalance.DoesNotExist:
+        from_balance = UserAsset.objects.get(wallet=from_wallet, cryptocurrency=crypto)
+    except UserAsset.DoesNotExist:
         return {"error": "No balance found for this cryptocurrency in source wallet"}
     
     if from_balance.balance < form.amount:
         return {"error": "Insufficient balance"}
     
     # Get or create destination wallet balance
-    to_balance, created = WalletBalance.objects.get_or_create(
+    to_balance, created = UserAsset.objects.get_or_create(
         wallet=to_wallet, 
         cryptocurrency=crypto,
         defaults={"balance": 0}
@@ -395,12 +457,12 @@ def send_crypto(request, form: SendRequestSchema):
     
     # Check if wallet has enough balance
     try:
-        wallet_balance = WalletBalance.objects.get(
+        wallet_balance = UserAsset.objects.get(
             wallet=wallet, 
             cryptocurrency=crypto,
             network=network
         )
-    except WalletBalance.DoesNotExist:
+    except UserAsset.DoesNotExist:
         return {"error": "No balance found for this cryptocurrency on the selected network"}
     
     if wallet_balance.balance < form.amount:
