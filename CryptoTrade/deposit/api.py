@@ -24,8 +24,8 @@ def deposit(request, user_id:int,cryptocurrency_id:int,form: DepositSchema):
     if not wallet_id:
         return {"error": "Wallet not found for this user"}
     
-    # Get or create the WalletBalance record
-    wallet_balance= WalletBalance.objects.get(wallet=wallet_id, cryptocurrency_id = cryptocurrency_id)
+    # Get or create the UserAsset record
+    wallet_balance= UserAsset.objects.get(wallet=wallet_id, cryptocurrency_id = cryptocurrency_id)
 
     # Update the balance
     wallet_balance.balance += Decimal(form.amount)

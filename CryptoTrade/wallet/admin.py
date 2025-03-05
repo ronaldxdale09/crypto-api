@@ -9,4 +9,4 @@ from wallet.models import *
 admin.site.register(Wallet)
 admin.site.register(WalletAddress)
 admin.site.register(Transaction)
-admin.site.register(WalletBalance)
+admin.site.register(UserAsset)

@@ -314,7 +314,7 @@ def get_coin_details(request, symbol: str):
 def get_user_assets(request, user_id: int):
     """Get cryptocurrencies owned by the user with balances"""
     try:
-        from wallet.models import Wallet, WalletBalance
+        from wallet.models import Wallet, UserAsset
         
         # Get the user's wallet and balances
         wallet = Wallet.objects.filter(user_id=user_id).first()
@@ -322,7 +322,7 @@ def get_user_assets(request, user_id: int):
             return []
             
         # Get balances with non-zero amounts
-        balances = WalletBalance.objects.filter(wallet=wallet, balance__gt=0)
+        balances = UserAsset.objects.filter(wallet=wallet, balance__gt=0)
         
         result = []
         for balance in balances:

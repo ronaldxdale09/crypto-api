@@ -34,7 +34,7 @@ def user_information(request, user_id: int):
     user = get_object_or_404(User, id=user_id)
     user_detail = UserDetail.objects.filter(user_id=user_id).first()
     wallet = Wallet.objects.filter(user_id=user).first()
-    wallet_balances = WalletBalance.objects.filter(wallet=wallet).select_related('cryptocurrency') if wallet else []
+    wallet_balances = UserAsset.objects.filter(wallet=wallet).select_related('cryptocurrency') if wallet else []
 
     # Format the data for JSON response
     data = {
@@ -124,10 +124,10 @@ def signup_user(request, form:SingupUserSchema):
     wallet = Wallet.objects.create()
     wallet.user_id.add(user)
 
-    # Initialize WalletBalance for each cryptocurrency
+    # Initialize UserAsset for each cryptocurrency
     cryptocurrencies = Cryptocurrency.objects.all()
-    WalletBalance.objects.bulk_create([
-        WalletBalance(wallet=wallet, cryptocurrency=crypto, balance=0.0)
+    UserAsset.objects.bulk_create([
+        UserAsset(wallet=wallet, cryptocurrency=crypto, balance=0.0)
         for crypto in cryptocurrencies
     ])
    

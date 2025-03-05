@@ -60,7 +60,7 @@ class Transaction(models.Model):
     def __str__(self):
         return f"{self.type} - {self.amount}"
 
-class WalletBalance(models.Model):
+class UserAsset(models.Model):
     wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, null=True, blank=True, related_name='balances')
     cryptocurrency = models.ForeignKey(Cryptocurrency, null=True, blank=True, on_delete=models.CASCADE)
     network = models.ForeignKey(Network, null=True, blank=True, on_delete=models.CASCADE, related_name="wallet_network")

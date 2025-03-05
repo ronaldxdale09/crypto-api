@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from user_account.models import User
 from crypto_currency.models import Cryptocurrency
-from wallet.models import Wallet, WalletBalance
+from wallet.models import Wallet, UserAsset
 from .models import Order, Trade, TradingPair
 from .forms import *
 
@@ -76,10 +76,10 @@ def create_order(request, form: CreateOrderSchema):
                 return {"success": False, "error": "Insufficient balance"}
         else:  # sell
             # For sell orders, check if user has enough of the cryptocurrency
-            wallet_balance = WalletBalance.objects.get(wallet=wallet, cryptocurrency=crypto)
+            wallet_balance = UserAsset.objects.get(wallet=wallet, cryptocurrency=crypto)
             if wallet_balance.balance < form.amount:
                 return {"success": False, "error": "Insufficient cryptocurrency balance"}
-    except WalletBalance.DoesNotExist:
+    except UserAsset.DoesNotExist:
         return {"success": False, "error": "No balance found for this cryptocurrency"}
     
     # Create the order
@@ -257,7 +257,7 @@ def buy_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
         wallet.save()
         
         # Update or create crypto balance
-        crypto_balance, created = WalletBalance.objects.get_or_create(
+        crypto_balance, created = UserAsset.objects.get_or_create(
             wallet=wallet,
             cryptocurrency=crypto,
             defaults={"balance": 0}
@@ -292,10 +292,10 @@ def sell_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
     
     # Check if user has enough crypto
     try:
-        crypto_balance = WalletBalance.objects.get(wallet=wallet, cryptocurrency=crypto)
+        crypto_balance = UserAsset.objects.get(wallet=wallet, cryptocurrency=crypto)
         if crypto_balance.balance < amount:
             return {"success": False, "error": "Insufficient cryptocurrency balance"}
-    except WalletBalance.DoesNotExist:
+    except UserAsset.DoesNotExist:
         return {"success": False, "error": "No balance found for this cryptocurrency"}
     
     # Get current price (in a real app, this would come from an exchange API)

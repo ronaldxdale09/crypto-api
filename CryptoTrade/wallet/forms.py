@@ -7,7 +7,7 @@ from datetime import datetime
 # from .models import * - Don't do this
 
 # Basic schemas
-class WalletBalanceSchema(Schema):
+class UserAssetSchema(Schema):
     wallet_id: int
     crypto_id: int
     network: str

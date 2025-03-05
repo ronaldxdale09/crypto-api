@@ -26,7 +26,7 @@ class UserWalletResponseSchema(Schema):
     user: UserSchema
     user_detail: Optional[UserDetailSchema] = None
     wallet: Optional[WalletSchema] = None
-    wallet_balances: List[WalletBalanceSchema] = []
+    wallet_balances: List[UserAssetSchema] = []
 
 
 class UserWalletResponseSchema(Schema):
