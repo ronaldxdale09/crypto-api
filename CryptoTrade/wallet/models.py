@@ -56,6 +56,7 @@ class Transaction(models.Model):
     memo = models.CharField(max_length=200, null=True, blank=True)  # Added field for memo/tag
     confirmation_count = models.IntegerField(default=0)  # Added field to track blockchain confirmations
     estimated_completion_time = models.DateTimeField(null=True, blank=True)  # Added field for estimated completion
+    comment= models.CharField(max_length=200, null=True, blank=True)
 
     def __str__(self):
         return f"{self.type} - {self.amount}"

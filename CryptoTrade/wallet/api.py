@@ -40,12 +40,12 @@ class TransactionSchema(Schema):
     status: str
     timestamp: str = None
 
-class WithdrawRequestSchema(Schema):
-    wallet_id: int
-    crypto_id: int
-    amount: Decimal
-    address: str
-    network_id: int
+# class WithdrawRequestSchema(Schema):
+#     wallet_id: int
+#     crypto_id: int
+#     amount: Decimal
+#     address: str
+#     network_id: int
 
 class DepositAddressSchema(Schema):
     wallet_id: int
@@ -146,7 +146,7 @@ def get_wallet(request, wallet_id: int):
         "is_active": wallet.is_active
     }
 #get selecting the default wallet
-@router.get('/user_asset/{user_id}')
+@router.get('/user_asset/')
 def getUserAsset(request, user_id: int):
     wallet_instance = Wallet.objects.get(user_id=user_id)
     
@@ -233,45 +233,57 @@ def get_wallet_transactions(request, wallet_id: int):
     ]
 
 @router.post('/withdraw')
-def withdraw(request, form: WithdrawRequestSchema):
-    """Withdraw cryptocurrency from wallet."""
+def withdraw(request ,form: WithdrawRequestSchema):
+    """Withdraw cryptocurrency from wallet (OKX-style)."""
     wallet = get_object_or_404(Wallet, id=form.wallet_id)
     crypto = get_object_or_404(Cryptocurrency, id=form.crypto_id)
     network = get_object_or_404(Network, id=form.network_id)
-    
-    # Check if wallet has enough balance
+
+    # Validate wallet balance
     try:
-        wallet_balance = UserAsset.objects.get(wallet=wallet, cryptocurrency=crypto)
+        wallet_balance = UserAsset.objects.get(wallet=wallet, cryptocurrency=crypto, network=network)
     except UserAsset.DoesNotExist:
-        return {"error": "No balance found for this cryptocurrency"}
-    
+        return {"error": "No balance found for this cryptocurrency and network."}
+
     if wallet_balance.balance < form.amount:
-        return {"error": "Insufficient balance"}
-    
-    # Calculate fee (example: 0.1% of transaction amount)
+        return {"error": "Insufficient balance."}
+
+    # Calculate withdrawal fee (example: 0.1% of transaction amount)
     fee = form.amount * Decimal('0.001')
-    
-    # Create transaction record
+    total_amount = form.amount + fee
+
+    # Create a pending transaction
     transaction = Transaction.objects.create(
         type="withdraw",
         amount=form.amount,
         fee=fee,
-        status="pending"
+        status="pending",
+        tx_hash=None,
+        destination_address=form.destination_address,
+        cryptocurrency=crypto,
+        network=network,
+        # memo=form.memo,
+        comment=form.comment,
+        estimated_completion_time=timezone.now() + timezone.timedelta(minutes=30)  # Example completion estimate
     )
     transaction.wallet_id.add(wallet)
-    
-    # Update wallet balance (will be actually deducted when transaction is confirmed)
-    wallet_balance.balance -= (form.amount + fee)
+
+    # Update wallet balance (provisional deduction)
+    wallet_balance.balance -= total_amount
+    wallet_balance.last_transaction = transaction
     wallet_balance.save()
-    
+
     return {
         "success": True,
         "transaction_id": transaction.id,
         "amount": form.amount,
         "fee": fee,
-        "status": "pending"
+        "destination_address": form.destination_address,
+        "status": "pending",
+        "estimated_completion_time": transaction.estimated_completion_time,
     }
 
+#Create depost address
 @router.post('/deposit/address')
 def get_deposit_address(request, form: DepositAddressSchema):
     """Get or create deposit address for a cryptocurrency and network."""

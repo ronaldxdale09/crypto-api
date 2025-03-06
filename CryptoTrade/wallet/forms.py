@@ -31,9 +31,11 @@ class TransactionSchema(Schema):
 class WithdrawRequestSchema(Schema):
     wallet_id: int
     crypto_id: int
-    amount: Decimal
-    address: str
     network_id: int
+    amount: Decimal
+    destination_address: str
+    # memo: str = None
+    comment: str
 
 class DepositAddressRequestSchema(Schema):
     wallet_id: int
