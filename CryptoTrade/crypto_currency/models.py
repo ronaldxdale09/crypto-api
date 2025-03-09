@@ -1,4 +1,4 @@
-# crypto_currency/models.py - Updated with Network Relationships
+# crypto_currency/models.py - Updated with Chart Support
 
 from django.db import models
 from django.utils import timezone
@@ -54,6 +54,22 @@ class PriceHistory(models.Model):
     
     class Meta:
         ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['cryptocurrency', 'timestamp']),
+        ]
         
     def __str__(self):
         return f"{self.cryptocurrency.symbol} - {self.timestamp}"
+
+class ChartPreference(models.Model):
+    user = models.ForeignKey('user_account.User', on_delete=models.CASCADE, related_name='chart_preferences')
+    cryptocurrency = models.ForeignKey(Cryptocurrency, on_delete=models.CASCADE)
+    default_timeframe = models.CharField(max_length=10, default='24h')  # 1h, 24h, 1w, 1m, 6m, 1y, all
+    show_volume = models.BooleanField(default=True)
+    chart_type = models.CharField(max_length=20, default='line')  # line, candle, bar
+    
+    class Meta:
+        unique_together = ('user', 'cryptocurrency')
+        
+    def __str__(self):
+        return f"{self.user.email} - {self.cryptocurrency.symbol} Chart Preference"

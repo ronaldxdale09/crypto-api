@@ -1,4 +1,4 @@
-# crypto_currency/forms.py
+# crypto_currency/forms.py - Updated with Chart Schemas
 
 from ninja import Schema
 from typing import List, Optional
@@ -94,3 +94,21 @@ class WithdrawalResponseSchema(Schema):
     fee: Decimal
     status: str
     created_at: datetime
+
+# New schemas for chart display
+class ChartDataPointSchema(Schema):
+    timestamp: str  # String format for easier frontend parsing
+    price: Decimal
+
+class ChartDataSchema(Schema):
+    data: List[ChartDataPointSchema]
+    min_price: Decimal
+    max_price: Decimal
+    percent_change: Decimal
+
+class ChartPreferenceSchema(Schema):
+    user_id: int
+    cryptocurrency_id: int
+    default_timeframe: str
+    show_volume: bool
+    chart_type: str
