@@ -97,14 +97,15 @@ class WithdrawalResponseSchema(Schema):
 
 # New schemas for chart display
 class ChartDataPointSchema(Schema):
-    timestamp: str  # String format for easier frontend parsing
-    price: Decimal
+    x: int  # This will be milliseconds since epoch
+    y: float  # Use float instead of Decimal for price
 
 class ChartDataSchema(Schema):
     data: List[ChartDataPointSchema]
-    min_price: Decimal
-    max_price: Decimal
-    percent_change: Decimal
+    min_price: float
+    max_price: float
+    percent_change: float
+
 
 class ChartPreferenceSchema(Schema):
     user_id: int

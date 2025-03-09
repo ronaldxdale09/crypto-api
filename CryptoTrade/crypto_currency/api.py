@@ -745,10 +745,13 @@ def get_chart_data(request, symbol: str, timeframe: str):
         if price_history.count() > 5:
             # Use real data if we have enough points
             for point in price_history:
+                # Convert timestamp to milliseconds since epoch for FlutterFlow
+                ms_since_epoch = int(point.timestamp.timestamp() * 1000)
+                
                 data_points.append(
                     ChartDataPointSchema(
-                        timestamp=point.timestamp.strftime("%Y-%m-%dT%H:%M:%S"),
-                        price=point.price
+                        x=ms_since_epoch,
+                        y=float(point.price)  # Convert Decimal to float
                     )
                 )
         else:
@@ -805,12 +808,15 @@ def get_chart_data(request, symbol: str, timeframe: str):
             # Reverse to get chronological order
             prices.reverse()
             
-            # Create data points
+            # Create data points in FlutterFlow-friendly format
             for i, ts in enumerate(timestamps):
+                # Convert timestamp to milliseconds since epoch for FlutterFlow
+                ms_since_epoch = int(ts.timestamp() * 1000)
+                
                 data_points.append(
                     ChartDataPointSchema(
-                        timestamp=ts.strftime("%Y-%m-%dT%H:%M:%S"),
-                        price=prices[i]
+                        x=ms_since_epoch,
+                        y=float(prices[i])  # Convert Decimal to float
                     )
                 )
                 
@@ -822,9 +828,9 @@ def get_chart_data(request, symbol: str, timeframe: str):
                 )
         
         # Calculate min and max prices for chart scaling
-        prices = [p.price for p in data_points]
-        min_price = min(prices) if prices else Decimal('0')
-        max_price = max(prices) if prices else Decimal('0')
+        prices = [p.y for p in data_points]
+        min_price = min(prices) if prices else 0.0
+        max_price = max(prices) if prices else 0.0
         
         # Calculate percent change
         if len(prices) >= 2:
@@ -833,24 +839,25 @@ def get_chart_data(request, symbol: str, timeframe: str):
             if start_price > 0:
                 percent_change = ((end_price - start_price) / start_price) * 100
             else:
-                percent_change = Decimal('0')
+                percent_change = 0.0
         else:
-            percent_change = crypto.price_change_24h or Decimal('0')
+            percent_change = float(crypto.price_change_24h or 0.0)
         
         return ChartDataSchema(
             data=data_points,
             min_price=min_price,
             max_price=max_price,
-            percent_change=percent_change.quantize(Decimal('0.01'))  # Round to 2 decimal places
+            percent_change=round(percent_change, 2)  # Round to 2 decimal places
         )
         
     except Exception as e:
         # Return empty dataset with error info in case of any exception
+        print(f"Chart error: {str(e)}")
         return ChartDataSchema(
             data=[],
-            min_price=Decimal('0'),
-            max_price=Decimal('0'),
-            percent_change=Decimal('0')
+            min_price=0.0,
+            max_price=0.0,
+            percent_change=0.0
         )
 
 @router.get('/getChartPreference/{user_id}/{cryptocurrency_id}', response=ChartPreferenceSchema)
