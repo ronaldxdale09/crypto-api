@@ -196,18 +196,22 @@ def get_user_trades(request, user_id: int):
         "count": len(result)
     }
 
+
 @router.post('/buy')
-def buy_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
+def buy_crypto(request, *, user_id: int, crypto_id: int, amount: Decimal):
     """
     Buy cryptocurrency directly at market price.
     This is a simplified version for FlutterFlow integration.
+    
+    Parameters are expected in the query string:
+    /buy?user_id=1&crypto_id=2&amount=0.5
     """
     user = get_object_or_404(User, id=user_id)
     crypto = get_object_or_404(Cryptocurrency, id=crypto_id)
     
-    # Find the user's wallet
+    # Find the user's wallet - FIXED: use user_id instead of user
     try:
-        wallet = Wallet.objects.get(user=user)
+        wallet = Wallet.objects.get(user_id=user.id)
     except Wallet.DoesNotExist:
         return {"success": False, "error": "Wallet not found"}
     
@@ -230,7 +234,7 @@ def buy_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
             wallet=wallet,
             cryptocurrency=crypto,
             order_type='buy',
-            execution_type='market',  # Specify market execution type
+            execution_type='market',
             price=current_price,
             amount=amount,
             status='completed',
@@ -273,17 +277,20 @@ def buy_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
     }
 
 @router.post('/sell')
-def sell_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
+def sell_crypto(request, *, user_id: int, crypto_id: int, amount: Decimal):
     """
     Sell cryptocurrency directly at market price.
     This is a simplified version for FlutterFlow integration.
+    
+    Parameters are expected in the query string:
+    /sell?user_id=1&crypto_id=2&amount=0.5
     """
     user = get_object_or_404(User, id=user_id)
     crypto = get_object_or_404(Cryptocurrency, id=crypto_id)
     
-    # Find the user's wallet
+    # Find the user's wallet - FIXED: use user_id instead of user
     try:
-        wallet = Wallet.objects.get(user=user)
+        wallet = Wallet.objects.get(user_id=user.id)
     except Wallet.DoesNotExist:
         return {"success": False, "error": "Wallet not found"}
     
@@ -309,7 +316,7 @@ def sell_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
             wallet=wallet,
             cryptocurrency=crypto,
             order_type='sell',
-            execution_type='market',  # Specify market execution type
+            execution_type='market',
             price=current_price,
             amount=amount,
             status='completed',
