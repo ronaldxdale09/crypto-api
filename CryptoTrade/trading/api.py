@@ -94,13 +94,6 @@ def create_order(request, form: CreateOrderSchema):
             status='pending'
         )
         
-        # In a real app, you would:
-        # 1. Reserve the funds/crypto
-        # 2. Try to match with existing orders
-        # 3. Create trades for matched orders
-        
-        # For demo purposes, we'll just create the order
-        
     return {
         "success": True,
         "order": {
