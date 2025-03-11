@@ -19,14 +19,14 @@ class User(models.Model):
     email = models.EmailField(max_length=200, null=True, blank=True)
     email_verified_at = models.DateTimeField(null=True, blank=True, default=timezone.now)
     password = models.CharField(max_length=200, null=True, blank=True)
-
+    role_id=models.ManyToManyField(Role,null = True, blank = True )
+    jwt_token = models.TextField(null = True, blank = True)
     # def __str__(self):
     #     return self.name
     
 class UserDetail(models.Model):
     user_profile = models.TextField(null=True, blank=True) 
     user_id= models.OneToOneField(User,null = True, blank = True, on_delete=models.CASCADE)
-    role_id=models.ManyToManyField(Role,null = True, blank = True )
     phone_number= models.CharField(max_length=200, null = True, blank = True)
     secret_phrase=models.CharField(max_length=200, null = True, blank = True)
     is_verified=models.BooleanField(default=False)
@@ -37,11 +37,21 @@ class UserDetail(models.Model):
     previous_ip_address=models.CharField(max_length=200, null = True, blank = True)
     referral_code=models.CharField(max_length=200, null = True, blank = True)
     status=models.CharField(max_length=200, null = True, blank = True)
+    uid=models.CharField(max_length=200, null = True, blank = True)
 
     def __str__(self):
         return self.user_id
 
 class KnowYourCustomer(models.Model):
+    DOCUMENT_TYPES = [
+        ('drivers_license', 'drivers license'),
+        ('national_id', 'National ID Card'),
+        ('passport', 'Passport'),
+        ('umid', 'Unified Multi-Purpose ID'),
+        ('postal_id', 'Postal ID'),
+        ('prc_id', 'PRC ID'),
+    ]
+    
     user_id= models.OneToOneField(User, on_delete=models.CASCADE)
     kyc_level=models.CharField(max_length=200, null = True, blank = True)
     full_name=models.CharField(max_length=200, null = True, blank = True)
@@ -53,6 +63,10 @@ class KnowYourCustomer(models.Model):
     city=models.CharField(max_length=200, null = True, blank = True)
     country=models.CharField(max_length=200, null = True, blank = True)
     postal_code=models.CharField(max_length=200, null = True, blank = True)
+    captured_selfie= models.TextField(null=True, blank=True)
+    back_captured_image=models.TextField(null=True, blank=True)
+    front_captured_image=models.TextField(null=True, blank=True)
+    # uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.full_name

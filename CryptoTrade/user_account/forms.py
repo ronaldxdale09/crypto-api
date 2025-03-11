@@ -68,3 +68,5 @@ class CreateUserDetailSchema(Schema):
     referral_code: str
     status: str
     role:str
+
+    

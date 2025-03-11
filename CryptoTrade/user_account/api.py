@@ -14,14 +14,35 @@ from django.http import JsonResponse
 from wallet.models import *
 from crypto_currency.models import *
 from ninja.files import UploadedFile
-
+import jwt
 import uuid
 from django.conf import settings
 import requests 
-
+from ninja.security import HttpBearer
+import datetime
 
 
 router = Router()
+
+class AuthBearer(HttpBearer):
+    def authenticate(self, request, token):
+        try:
+            JWT_SIGNING_KEY = getattr(settings, "JWT_SIGNING_KEY", None)
+            payload = jwt.decode(token, JWT_SIGNING_KEY, algorithms=["HS256"])
+            email: str = payload.get("email")
+
+            if email is None:
+                return None
+        except jwt.PyJWTError as e:
+            return None
+        
+        return email
+    
+# def create_jwt_token(user):
+#     JWT_SIGNING_KEY = getattr(settings, "JWT_SIGNING_KEY", None)
+#     payload = {"email": user.email}
+#     token = jwt.encode(payload, JWT_SIGNING_KEY, algorithm="HS256")
+#     return token
 
 #Get Function
 @router.get('/getUser', response=list[UserSchema])
@@ -73,8 +94,6 @@ def user_information(request, user_id: int):
     return JsonResponse(data)
 
 
-
-
 #Login Function
 @router.post('/login')
 def user_login(request, form: LoginUserSchema):
@@ -92,6 +111,8 @@ def user_login(request, form: LoginUserSchema):
     wallet_instance = Wallet.objects.get(user_id=user_id)
     if not wallet_instance:
         return {"error": "Wallet not found for this user"}
+    
+    
     
     return {
         "success": True,
@@ -130,13 +151,26 @@ def signup_user(request, form:SingupUserSchema):
         UserAsset(wallet=wallet, cryptocurrency=crypto, balance=0.0)
         for crypto in cryptocurrencies
     ])
-   
+
+    payload = {
+    "user_id": user.id,
+    "email": user.email,
+    "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+}
+    JWT_SIGNING_KEY = getattr(settings, "JWT_SIGNING_KEY", None)
+    encoded_token = jwt.encode(payload, JWT_SIGNING_KEY, algorithm="HS256")
+    print(encoded_token)
+    user.jwt_token = encoded_token
+    user.save()
+        
+
     return {
     
         "success": "The account was successfully signed up!",
         "user_id": user.id,
         "wallet_id": wallet.id,
-        "cryptocurrencies": [crypto.symbol for crypto in cryptocurrencies]
+        "cryptocurrencies": [crypto.symbol for crypto in cryptocurrencies],
+        'jwt_token': encoded_token
     }
 
 #To generate a code for referral
@@ -279,4 +313,81 @@ def edit_profile(request, userId: int):
             "status": user_detail.status,
             "user_profile": user_detail.user_profile
         }
+    }
+
+#helper function for kyc 
+def upload_to_supabase(file, user_id, prefix):
+    file_content = file.read()
+    file_size = len(file_content)
+    file_type = file.content_type
+    print(f"Uploading file: {file.name}, Size: {file_size}, Type: {file_type}")
+    
+    # Generate unique filename
+    filename = f"{prefix}_{user_id}_{uuid.uuid4().hex[:8]}.{file.name.split('.')[-1]}"
+    
+    # Specify the KYC folder
+    folder_name = "kyc"
+    # Construct Supabase storage URL
+    bucket_name = "crypto_app"
+    supabase_url = settings.SUPABASE_URL
+    storage_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{folder_name}/{filename}"
+    print(f"Upload URL: {storage_url}")
+    
+    # Set headers
+    headers = {
+        "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+        "Content-Type": file_type,
+    }
+    
+    # Upload file
+    response = requests.post(storage_url, headers=headers, data=file_content)
+    
+    # Check if upload was successful
+    if response.status_code == 200:
+        return storage_url
+    else:
+        print(f"Upload failed: {response.status_code}, {response.text}")
+        raise Exception("Failed to upload file to Supabase")
+    
+#KYC upload image functionality
+@router.post("/upload-kyc/")
+def upload_kyc(request, user_id: int, document_type: str, captured_selfie: UploadedFile = File(...), back_captured_image:UploadedFile = File(...), front_captured_image: UploadedFile = File(...)):
+    # Check if user exists
+    user = get_object_or_404(User, id=user_id)
+
+    # Prevent duplicate KYC records
+    if KnowYourCustomer.objects.filter(user_id=user).exists():
+        return {"error": "KYC record already exists for this user"}
+
+     # Ensure document type is valid
+    valid_document_types = [doc[0] for doc in KnowYourCustomer.DOCUMENT_TYPES]
+    if document_type not in valid_document_types:
+        return {"error": "Invalid document type"}
+    if document_type not in valid_document_types:
+        return {"error": "Invalid document type"}
+
+    # Upload images to Supabase
+    try:
+        selfie_url = upload_to_supabase(captured_selfie, user_id, "selfie")
+        front_id_url = upload_to_supabase(front_captured_image, user_id, "front_id")
+        back_id_url = upload_to_supabase(back_captured_image, user_id, "back_id")
+    except Exception as e:
+        return {"error": str(e)}
+
+    # Create KYC record
+    kyc = KnowYourCustomer.objects.create(
+        user_id=user,
+        document_type=document_type,
+        captured_selfie=selfie_url,
+        front_captured_image=front_id_url,
+        back_captured_image=back_id_url,
+    )
+
+    return {
+        "message": "KYC documents uploaded successfully",
+        "user_id": user.id,
+        "document_type": kyc.document_type,
+        "selfie_url": selfie_url,
+        "front_id_url": front_id_url,
+        "back_id_url": back_id_url,
     }
