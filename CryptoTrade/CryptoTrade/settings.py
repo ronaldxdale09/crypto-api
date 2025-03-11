@@ -170,6 +170,8 @@ USE_I18N = True
 
 USE_TZ = True
 
+JWT_SIGNING_KEY = 'Zg5LUWqfSSta4KYOOXmJ2qb25W5oZYxs6dDp5Hme6Vk'
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/

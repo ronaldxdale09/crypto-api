@@ -57,6 +57,8 @@ class SendRequestSchema(Schema):
     recipient_address: str
     memo: Optional[str] = None  # Optional memo/tag field for certain blockchains
 
+
+
 # Response schemas
 class TransactionResponseSchema(Schema):
     success: bool
@@ -75,3 +77,8 @@ class NetworkFeeSchema(Schema):
     network: str
     fee_options: dict
     updated_at: str
+
+
+class  KYCInputSchema(Schema):
+    # user_id: int
+    document_type: str

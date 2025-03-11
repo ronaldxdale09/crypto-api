@@ -57,7 +57,7 @@ def get_market_data(request, pair_id: int):
 # Orders
 @router.post('/order', response=OrderResponseSchema)
 def create_order(request, form: CreateOrderSchema):
-    """Create a buy or sell order."""
+    """Create a buy or sell order (market or limit)."""
     user = get_object_or_404(User, id=form.user_id)
     wallet = get_object_or_404(Wallet, id=form.wallet_id)
     crypto = get_object_or_404(Cryptocurrency, id=form.crypto_id)
@@ -66,16 +66,16 @@ def create_order(request, form: CreateOrderSchema):
     if form.order_type not in ['buy', 'sell']:
         return {"success": False, "error": "Invalid order type"}
     
-    # Check if user has sufficient balance
+    # Validate order execution type (market or limit)
+    if form.execution_type not in ['market', 'limit']:
+        return {"success": False, "error": "Invalid execution type"}
+
     try:
         if form.order_type == 'buy':
-            # For buy orders, check if user has enough quote currency (e.g., USDT)
-            # This is simplified - in a real app you would identify the quote currency
-            total_cost = form.price * form.amount
+            total_cost = form.price * form.amount if form.execution_type == 'limit' else form.amount
             if wallet.available_balance < total_cost:
                 return {"success": False, "error": "Insufficient balance"}
         else:  # sell
-            # For sell orders, check if user has enough of the cryptocurrency
             wallet_balance = UserAsset.objects.get(wallet=wallet, cryptocurrency=crypto)
             if wallet_balance.balance < form.amount:
                 return {"success": False, "error": "Insufficient cryptocurrency balance"}
@@ -89,18 +89,12 @@ def create_order(request, form: CreateOrderSchema):
             wallet=wallet,
             cryptocurrency=crypto,
             order_type=form.order_type,
-            price=form.price,
+            execution_type=form.execution_type,
+            price=form.price if form.execution_type == 'limit' else None,
             amount=form.amount,
             status='pending'
         )
-        
-        # In a real app, you would:
-        # 1. Reserve the funds/crypto
-        # 2. Try to match with existing orders
-        # 3. Create trades for matched orders
-        
-        # For demo purposes, we'll just create the order
-        
+    
     return {
         "success": True,
         "order": {
@@ -109,6 +103,7 @@ def create_order(request, form: CreateOrderSchema):
             "wallet_id": order.wallet.id,
             "crypto_id": order.cryptocurrency.id,
             "order_type": order.order_type,
+            "execution_type": order.execution_type,
             "price": order.price,
             "amount": order.amount,
             "status": order.status,

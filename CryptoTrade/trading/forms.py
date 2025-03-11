@@ -10,6 +10,7 @@ class OrderSchema(Schema):
     wallet_id: int
     crypto_id: int
     order_type: str  # 'buy' or 'sell'
+    execution_type: str #'market' or 'limit'
     price: Decimal
     amount: Decimal
     status: str
@@ -40,6 +41,7 @@ class CreateOrderSchema(Schema):
     wallet_id: int
     crypto_id: int
     order_type: str  # 'buy' or 'sell'
+    execution_type: str # 'limit' or 'market'
     price: Decimal
     amount: Decimal
 

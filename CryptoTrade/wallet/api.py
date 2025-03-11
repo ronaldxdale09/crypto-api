@@ -530,6 +530,8 @@ def send_crypto(request, form: SendRequestSchema):
         "estimated_completion_time": "5-30 minutes"  # Mock estimation
     }
 
+
+
 # Add this endpoint to get transaction details by ID
 @router.get('/transaction/{transaction_id}')
 def get_transaction_details(request, transaction_id: int):
