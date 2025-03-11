@@ -196,7 +196,6 @@ def get_user_trades(request, user_id: int):
         "count": len(result)
     }
 
-# Simple buy and sell functions for direct transactions
 @router.post('/buy')
 def buy_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
     """
@@ -208,7 +207,7 @@ def buy_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
     
     # Find the user's wallet
     try:
-        wallet = Wallet.objects.get(user_id=user)
+        wallet = Wallet.objects.get(user=user)
     except Wallet.DoesNotExist:
         return {"success": False, "error": "Wallet not found"}
     
@@ -217,9 +216,11 @@ def buy_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
     
     # Calculate total cost
     total_cost = amount * current_price
+    fee = total_cost * Decimal('0.001')  # 0.1% fee example
+    total_with_fee = total_cost + fee
     
     # Check if user has enough balance
-    if wallet.available_balance < total_cost:
+    if wallet.available_balance < total_with_fee:
         return {"success": False, "error": "Insufficient balance"}
     
     with transaction.atomic():
@@ -229,6 +230,7 @@ def buy_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
             wallet=wallet,
             cryptocurrency=crypto,
             order_type='buy',
+            execution_type='market',  # Specify market execution type
             price=current_price,
             amount=amount,
             status='completed',
@@ -244,11 +246,11 @@ def buy_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
             sell_order=None,
             price=current_price,
             amount=amount,
-            fee=total_cost * Decimal('0.001')  # 0.1% fee example
+            fee=fee
         )
         
         # Update wallet balances
-        wallet.available_balance -= total_cost
+        wallet.available_balance -= total_with_fee
         wallet.save()
         
         # Update or create crypto balance
@@ -267,7 +269,7 @@ def buy_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
         "price": current_price,
         "amount": amount,
         "total_cost": total_cost,
-        "fee": trade.fee
+        "fee": fee
     }
 
 @router.post('/sell')
@@ -281,7 +283,7 @@ def sell_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
     
     # Find the user's wallet
     try:
-        wallet = Wallet.objects.get(user_id=user)
+        wallet = Wallet.objects.get(user=user)
     except Wallet.DoesNotExist:
         return {"success": False, "error": "Wallet not found"}
     
@@ -298,6 +300,7 @@ def sell_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
     
     # Calculate total value
     total_value = amount * current_price
+    fee = total_value * Decimal('0.001')  # 0.1% fee example
     
     with transaction.atomic():
         # Create an order
@@ -306,6 +309,7 @@ def sell_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
             wallet=wallet,
             cryptocurrency=crypto,
             order_type='sell',
+            execution_type='market',  # Specify market execution type
             price=current_price,
             amount=amount,
             status='completed',
@@ -321,7 +325,7 @@ def sell_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
             sell_order=order,
             price=current_price,
             amount=amount,
-            fee=total_value * Decimal('0.001')  # 0.1% fee example
+            fee=fee
         )
         
         # Update wallet balances
@@ -329,8 +333,7 @@ def sell_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
         crypto_balance.save()
         
         # Add the value to wallet balance (minus fee)
-        fee_amount = total_value * Decimal('0.001')
-        wallet.available_balance += (total_value - fee_amount)
+        wallet.available_balance += (total_value - fee)
         wallet.save()
     
     return {
@@ -340,5 +343,5 @@ def sell_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
         "price": current_price,
         "amount": amount,
         "total_value": total_value,
-        "fee": fee_amount
+        "fee": fee
     }
