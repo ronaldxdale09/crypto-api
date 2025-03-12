@@ -38,6 +38,11 @@ class AuthBearer(HttpBearer):
         
         return email
     
+
+# Define Schema for request validation and documentation
+class KYCUploadSchema(Schema):
+    document_type: str
+    
 # def create_jwt_token(user):
 #     JWT_SIGNING_KEY = getattr(settings, "JWT_SIGNING_KEY", None)
 #     payload = {"email": user.email}
@@ -324,12 +329,9 @@ def edit_profile(request, userId: int):
         }
     }
 
+
 #helper function for kyc 
 def upload_to_supabase(file, user_id, prefix):
-    from django.conf import settings
-    import uuid
-    import requests
-    
     file_content = file.read()
     file_size = len(file_content)
     file_type = file.content_type
@@ -361,7 +363,7 @@ def upload_to_supabase(file, user_id, prefix):
     
     # Check if upload was successful
     if response.status_code in [200, 201]:
-        # Calculate the public URL (similar to edit_profile)
+        # Calculate the public URL
         public_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{folder_name}/{filename}"
         print(f"File uploaded successfully: {public_url}")
         return public_url
@@ -370,26 +372,26 @@ def upload_to_supabase(file, user_id, prefix):
         raise Exception(f"Failed to upload file to Supabase: {response.status_code} - {response.text}")
     
 #KYC upload image functionality
-@router.post('/upload-kyc/user={user_id}')
-def upload_kyc(request, user_id: int):
-    from django.conf import settings
-    import uuid
+@router.post('/upload-kyc/user={user_id}', 
+             tags=["User Account"],
+             summary="Upload KYC documents")
+def upload_kyc(
+    request,
+    user_id: int,
+    document_type: str = Form(..., description="Type of ID document (e.g. prc_id, drivers_license)"),
+    captured_selfie: UploadedFile = File(..., description="User's selfie photo"),
+    front_captured_image: UploadedFile = File(..., description="Front side of ID document"),
+    back_captured_image: UploadedFile = File(..., description="Back side of ID document")
+):
+    """
+    Upload KYC (Know Your Customer) verification documents
     
+    This endpoint allows users to submit their identification documents for verification.
+    """
     # Check if user exists
+    from yourapp.models import User, KnowYourCustomer  # Replace with your actual model import
+    
     user = get_object_or_404(User, id=user_id)
-    
-    # Extract data from request
-    document_type = request.POST.get('document_type')
-    captured_selfie = request.FILES.get('captured_selfie')
-    front_captured_image = request.FILES.get('front_captured_image')
-    back_captured_image = request.FILES.get('back_captured_image')
-    
-    # Validate required files
-    if not captured_selfie or not front_captured_image or not back_captured_image:
-        return {
-            "success": False,
-            "message": "All files (selfie, front ID and back ID) are required"
-        }
     
     # Prevent duplicate KYC records
     if KnowYourCustomer.objects.filter(user_id=user).exists():
@@ -400,10 +402,10 @@ def upload_kyc(request, user_id: int):
     
     # Ensure document type is valid
     valid_document_types = [doc[0] for doc in KnowYourCustomer.DOCUMENT_TYPES]
-    if not document_type or document_type not in valid_document_types:
+    if document_type not in valid_document_types:
         return {
             "success": False,
-            "message": f"Invalid document type: {document_type}"
+            "message": f"Invalid document type: {document_type}. Valid types are: {', '.join(valid_document_types)}"
         }
     
     # Upload images to Supabase
