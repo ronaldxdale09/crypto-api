@@ -326,6 +326,10 @@ def edit_profile(request, userId: int):
 
 #helper function for kyc 
 def upload_to_supabase(file, user_id, prefix):
+    from django.conf import settings
+    import uuid
+    import requests
+    
     file_content = file.read()
     file_size = len(file_content)
     file_type = file.content_type
@@ -351,48 +355,91 @@ def upload_to_supabase(file, user_id, prefix):
     # Upload file
     response = requests.post(storage_url, headers=headers, data=file_content)
     
+    # Debug response
+    print(f"Upload status code: {response.status_code}")
+    print(f"Upload response: {response.text[:200]}...")  # Print first 200 chars
+    
     # Check if upload was successful
-    if response.status_code == 200:
-        return storage_url
+    if response.status_code in [200, 201]:
+        # Calculate the public URL (similar to edit_profile)
+        public_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{folder_name}/{filename}"
+        print(f"File uploaded successfully: {public_url}")
+        return public_url
     else:
         print(f"Upload failed: {response.status_code}, {response.text}")
-        raise Exception("Failed to upload file to Supabase")
+        raise Exception(f"Failed to upload file to Supabase: {response.status_code} - {response.text}")
     
 #KYC upload image functionality
-@router.post("/upload-kyc/")
-def upload_kyc(request, user_id: int, document_type: str, captured_selfie: UploadedFile = File(...), back_captured_image:UploadedFile = File(...), front_captured_image: UploadedFile = File(...)):
+@router.post('/upload-kyc/user={user_id}')
+def upload_kyc(request, user_id: int):
+    from django.conf import settings
+    import uuid
+    
     # Check if user exists
     user = get_object_or_404(User, id=user_id)
-
+    
+    # Extract data from request
+    document_type = request.POST.get('document_type')
+    captured_selfie = request.FILES.get('captured_selfie')
+    front_captured_image = request.FILES.get('front_captured_image')
+    back_captured_image = request.FILES.get('back_captured_image')
+    
+    # Validate required files
+    if not captured_selfie or not front_captured_image or not back_captured_image:
+        return {
+            "success": False,
+            "message": "All files (selfie, front ID and back ID) are required"
+        }
+    
     # Prevent duplicate KYC records
     if KnowYourCustomer.objects.filter(user_id=user).exists():
-        return {"error": "KYC record already exists for this user"}
-
-     # Ensure document type is valid
+        return {
+            "success": False,
+            "message": "KYC record already exists for this user"
+        }
+    
+    # Ensure document type is valid
     valid_document_types = [doc[0] for doc in KnowYourCustomer.DOCUMENT_TYPES]
-    if document_type not in valid_document_types:
-        return {"error": "Invalid document type"}
-    if document_type not in valid_document_types:
-        return {"error": "Invalid document type"}
-
+    if not document_type or document_type not in valid_document_types:
+        return {
+            "success": False,
+            "message": f"Invalid document type: {document_type}"
+        }
+    
     # Upload images to Supabase
     try:
         selfie_url = upload_to_supabase(captured_selfie, user_id, "selfie")
         front_id_url = upload_to_supabase(front_captured_image, user_id, "front_id")
         back_id_url = upload_to_supabase(back_captured_image, user_id, "back_id")
     except Exception as e:
-        return {"error": str(e)}
-
+        import traceback
+        print(f"Error uploading KYC files: {str(e)}")
+        print(traceback.format_exc())
+        return {
+            "success": False,
+            "message": f"Error uploading KYC files: {str(e)}"
+        }
+    
     # Create KYC record
-    kyc = KnowYourCustomer.objects.create(
-        user_id=user,
-        document_type=document_type,
-        captured_selfie=selfie_url,
-        front_captured_image=front_id_url,
-        back_captured_image=back_id_url,
-    )
-
+    try:
+        kyc = KnowYourCustomer.objects.create(
+            user_id=user,
+            document_type=document_type,
+            captured_selfie=selfie_url,
+            front_captured_image=front_id_url,
+            back_captured_image=back_id_url,
+        )
+    except Exception as e:
+        import traceback
+        print(f"Error creating KYC record: {str(e)}")
+        print(traceback.format_exc())
+        return {
+            "success": False,
+            "message": f"Error creating KYC record: {str(e)}"
+        }
+    
     return {
+        "success": True,
         "message": "KYC documents uploaded successfully",
         "user_id": user.id,
         "document_type": kyc.document_type,
