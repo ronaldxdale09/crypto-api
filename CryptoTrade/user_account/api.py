@@ -329,70 +329,17 @@ def edit_profile(request, userId: int):
         }
     }
 
-
-#helper function for kyc 
-def upload_to_supabase(file, user_id, prefix):
-    file_content = file.read()
-    file_size = len(file_content)
-    file_type = file.content_type
-    print(f"Uploading file: {file.name}, Size: {file_size}, Type: {file_type}")
-    
-    # Generate unique filename
-    filename = f"{prefix}_{user_id}_{uuid.uuid4().hex[:8]}.{file.name.split('.')[-1]}"
-    
-    # Specify the KYC folder
-    folder_name = "kyc"
-    # Construct Supabase storage URL
-    bucket_name = "crypto_app"
-    supabase_url = settings.SUPABASE_URL
-    storage_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{folder_name}/{filename}"
-    print(f"Upload URL: {storage_url}")
-    
-    # Set headers
-    headers = {
-        "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
-        "Content-Type": file_type,
-    }
-    
-    # Upload file
-    response = requests.post(storage_url, headers=headers, data=file_content)
-    
-    # Debug response
-    print(f"Upload status code: {response.status_code}")
-    print(f"Upload response: {response.text[:200]}...")  # Print first 200 chars
-    
-    # Check if upload was successful
-    if response.status_code in [200, 201]:
-        # Calculate the public URL
-        public_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{folder_name}/{filename}"
-        print(f"File uploaded successfully: {public_url}")
-        return public_url
-    else:
-        print(f"Upload failed: {response.status_code}, {response.text}")
-        raise Exception(f"Failed to upload file to Supabase: {response.status_code} - {response.text}")
-    
-
-
-
-
-
-#KYC upload image functionality
-@router.post('/upload-kyc/', 
+@router.post('/upload-kyc/user={user_id}', 
              tags=["User Account"],
              summary="Upload KYC documents")
-def upload_kyc(
-    request,
-    user_id: int,
-    document_type: str = Form(..., description="Type of ID document (e.g. prc_id, drivers_license)"),
-    captured_selfie: UploadedFile = File(..., description="User's selfie photo"),
-    front_captured_image: UploadedFile = File(..., description="Front side of ID document"),
-    back_captured_image: UploadedFile = File(..., description="Back side of ID document")
-):
+def upload_kyc(request, user_id: int):
     """
     Upload KYC (Know Your Customer) verification documents
     
     This endpoint allows users to submit their identification documents for verification.
     """
+    from django.conf import settings
+    
     # Check if user exists
     user = get_object_or_404(User, id=user_id)
     
@@ -403,19 +350,109 @@ def upload_kyc(
             "message": "KYC record already exists for this user"
         }
     
+    # Extract data from request
+    document_type = request.POST.get('document_type')
+    captured_selfie = request.FILES.get('captured_selfie')
+    front_captured_image = request.FILES.get('front_captured_image')
+    back_captured_image = request.FILES.get('back_captured_image')
+    
     # Ensure document type is valid
     valid_document_types = [doc[0] for doc in KnowYourCustomer.DOCUMENT_TYPES]
-    if document_type not in valid_document_types:
+    if not document_type or document_type not in valid_document_types:
         return {
             "success": False,
             "message": f"Invalid document type: {document_type}. Valid types are: {', '.join(valid_document_types)}"
         }
     
-    # Upload images to Supabase
+    # Check if all required files are provided
+    if not all([captured_selfie, front_captured_image, back_captured_image]):
+        return {
+            "success": False,
+            "message": "All required files (selfie, front and back of ID) must be uploaded"
+        }
+    
+    # Upload selfie to Supabase
     try:
-        selfie_url = upload_to_supabase(captured_selfie, user_id, "selfie")
-        front_id_url = upload_to_supabase(front_captured_image, user_id, "front_id")
-        back_id_url = upload_to_supabase(back_captured_image, user_id, "back_id")
+        # Read file data
+        selfie_content = captured_selfie.read()
+        selfie_size = len(selfie_content)
+        selfie_type = captured_selfie.content_type
+        
+        # Generate a unique filename
+        selfie_filename = f"selfie_{user_id}_{uuid.uuid4().hex[:8]}.{captured_selfie.name.split('.')[-1]}"
+        
+        bucket_name = "crypto_app"
+        folder_name = "kyc"
+        supabase_url = settings.SUPABASE_URL
+        selfie_storage_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{folder_name}/{selfie_filename}"
+        
+        # Set up headers
+        headers = {
+            "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+            "Content-Type": selfie_type,
+        }
+        
+        # Upload the selfie
+        selfie_response = requests.post(
+            selfie_storage_url,
+            headers=headers,
+            data=selfie_content
+        )
+        
+        if selfie_response.status_code not in [200, 201]:
+            return {
+                "success": False,
+                "message": f"Failed to upload selfie: {selfie_response.status_code} - {selfie_response.text}"
+            }
+            
+        selfie_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{folder_name}/{selfie_filename}"
+        
+        # Upload front ID image
+        front_content = front_captured_image.read()
+        front_type = front_captured_image.content_type
+        front_filename = f"front_id_{user_id}_{uuid.uuid4().hex[:8]}.{front_captured_image.name.split('.')[-1]}"
+        front_storage_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{folder_name}/{front_filename}"
+        
+        front_response = requests.post(
+            front_storage_url,
+            headers={
+                "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                "Content-Type": front_type,
+            },
+            data=front_content
+        )
+        
+        if front_response.status_code not in [200, 201]:
+            return {
+                "success": False,
+                "message": f"Failed to upload front ID: {front_response.status_code} - {front_response.text}"
+            }
+            
+        front_id_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{folder_name}/{front_filename}"
+        
+        # Upload back ID image
+        back_content = back_captured_image.read()
+        back_type = back_captured_image.content_type
+        back_filename = f"back_id_{user_id}_{uuid.uuid4().hex[:8]}.{back_captured_image.name.split('.')[-1]}"
+        back_storage_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{folder_name}/{back_filename}"
+        
+        back_response = requests.post(
+            back_storage_url,
+            headers={
+                "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                "Content-Type": back_type,
+            },
+            data=back_content
+        )
+        
+        if back_response.status_code not in [200, 201]:
+            return {
+                "success": False,
+                "message": f"Failed to upload back ID: {back_response.status_code} - {back_response.text}"
+            }
+            
+        back_id_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{folder_name}/{back_filename}"
+        
     except Exception as e:
         import traceback
         print(f"Error uploading KYC files: {str(e)}")
