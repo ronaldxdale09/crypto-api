@@ -230,149 +230,217 @@ def get_user_trades(request, user_id: int):
         "count": len(result)
     }
 
-# Simple buy and sell functions for direct transactions
-@router.post('/buy')
-def buy_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
+
+@router.post('/trading/buy/{user_id}/{crypto_id}')
+def buy_crypto(request, user_id: int, crypto_id: int, currentPrice: float, totalAmount: float):
     """
     Buy cryptocurrency directly at market price.
-    This is a simplified version for FlutterFlow integration.
+    
+    Path parameters:
+    - user_id: ID of the user making the purchase
+    - crypto_id: ID of the cryptocurrency to buy
+    
+    Query parameters:
+    - currentPrice: Current price of the cryptocurrency
+    - totalAmount: Total amount in USD to spend
+    
+    Example: /api/trading/buy/1/2?currentPrice=42500.00&totalAmount=500.00
     """
-    user = get_object_or_404(User, id=user_id)
-    crypto = get_object_or_404(Cryptocurrency, id=crypto_id)
-    
-    # Find the user's wallet
     try:
-        wallet = Wallet.objects.get(user_id=user)
-    except Wallet.DoesNotExist:
-        return {"success": False, "error": "Wallet not found"}
-    
-    # Get current price (in a real app, this would come from an exchange API)
-    current_price = Decimal('42500.00')  # Example price
-    
-    # Calculate total cost
-    total_cost = amount * current_price
-    
-    # Check if user has enough balance
-    if wallet.available_balance < total_cost:
-        return {"success": False, "error": "Insufficient balance"}
-    
-    with transaction.atomic():
-        # Create an order
-        order = Order.objects.create(
-            user=user,
-            wallet=wallet,
-            cryptocurrency=crypto,
-            order_type='buy',
-            price=current_price,
-            amount=amount,
-            status='completed',
-            completed_at=timezone.now()
-        )
+        # Convert numeric values to Decimal for precision
+        current_price = Decimal(str(currentPrice))
+        total_amount = Decimal(str(totalAmount))
         
-        # Create a trade record
-        trade = Trade.objects.create(
-            buyer=user,
-            seller=None,  # In a real exchange, this would be the matched seller
-            cryptocurrency=crypto,
-            buy_order=order,
-            sell_order=None,
-            price=current_price,
-            amount=amount,
-            fee=total_cost * Decimal('0.001')  # 0.1% fee example
-        )
+        # Validate values are positive
+        if current_price <= 0:
+            return {"success": False, "error": "Price must be greater than zero"}
+        if total_amount <= 0:
+            return {"success": False, "error": "Amount must be greater than zero"}
         
-        # Update wallet balances
-        wallet.available_balance -= total_cost
-        wallet.save()
+        # Get user and cryptocurrency
+        user = get_object_or_404(User, id=user_id)
+        crypto = get_object_or_404(Cryptocurrency, id=crypto_id)
         
-        # Update or create crypto balance
-        crypto_balance, created = UserAsset.objects.get_or_create(
-            wallet=wallet,
-            cryptocurrency=crypto,
-            defaults={"balance": 0}
-        )
-        crypto_balance.balance += amount
-        crypto_balance.save()
-    
-    return {
-        "success": True,
-        "order_id": order.id,
-        "trade_id": trade.id,
-        "price": current_price,
-        "amount": amount,
-        "total_cost": total_cost,
-        "fee": trade.fee
-    }
+        # Find the user's wallet
+        try:
+            wallet = Wallet.objects.get(user_id=user.id)
+        except Wallet.DoesNotExist:
+            return {"success": False, "error": "Wallet not found"}
+        
+        # Calculate coin amount based on total USD amount and price
+        coin_amount = total_amount / current_price
+        
+        # Calculate fee
+        fee = total_amount * Decimal('0.001')  # 0.1% fee example
+        total_with_fee = total_amount + fee
+        
+        # Check if user has enough balance
+        if wallet.available_balance < total_with_fee:
+            return {"success": False, "error": "Insufficient balance"}
+        
+        try:
+            with transaction.atomic():
+                # Create the order - without execution_type
+                order = Order(
+                    user=user,
+                    wallet=wallet,
+                    cryptocurrency=crypto,
+                    order_type='buy',
+                    price=current_price,
+                    amount=coin_amount,
+                    status='completed',
+                    completed_at=timezone.now(),
+                    is_approved=True,
+                    is_declined=False
+                )
+                order.save()
+                
+                # Insert trade record directly using raw SQL to bypass ORM constraints
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO trading_trade 
+                        (price, amount, fee, executed_at, buyer_id, seller_id, cryptocurrency_id, buy_order_id, sell_order_id) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                        """,
+                        [
+                            current_price, coin_amount, fee, timezone.now(), user.id, user.id, 
+                            crypto.id, order.id, None
+                        ]
+                    )
+                    trade_id = cursor.fetchone()[0]
+                
+                # Update wallet balances
+                wallet.available_balance -= total_with_fee
+                wallet.save()
+                
+                # Update or create crypto balance
+                crypto_balance, created = UserAsset.objects.get_or_create(
+                    wallet=wallet,
+                    cryptocurrency=crypto,
+                    defaults={"balance": 0}
+                )
+                crypto_balance.balance += coin_amount
+                crypto_balance.save()
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+        
+        return {
+            "success": True,
+            "order_id": order.id,
+            "trade_id": trade_id,
+            "price": current_price,
+            "coin_amount": coin_amount,
+            "total_amount": total_amount,
+            "fee": fee
+        }
+    except Exception as e:
+        return {"success": False, "error": f"An unexpected error occurred: {str(e)}"}
 
-@router.post('/sell')
-def sell_crypto(request, user_id: int, crypto_id: int, amount: Decimal):
+@router.post('/trading/sell/{user_id}/{crypto_id}')
+def sell_crypto(request, user_id: int, crypto_id: int, currentPrice: float, amount: float):
     """
-    Sell cryptocurrency directly at market price.
-    This is a simplified version for FlutterFlow integration.
+    Sell cryptocurrency at market price.
+    
+    Path parameters:
+    - user_id: ID of the user selling
+    - crypto_id: ID of the cryptocurrency to sell
+    
+    Query parameters:
+    - currentPrice: Current price of the cryptocurrency
+    - amount: Amount in coins to sell
+    
+    Example: /api/trading/sell/1/2?currentPrice=42500.00&amount=0.5
     """
-    user = get_object_or_404(User, id=user_id)
-    crypto = get_object_or_404(Cryptocurrency, id=crypto_id)
-    
-    # Find the user's wallet
     try:
-        wallet = Wallet.objects.get(user_id=user)
-    except Wallet.DoesNotExist:
-        return {"success": False, "error": "Wallet not found"}
-    
-    # Check if user has enough crypto
-    try:
-        crypto_balance = UserAsset.objects.get(wallet=wallet, cryptocurrency=crypto)
-        if crypto_balance.balance < amount:
-            return {"success": False, "error": "Insufficient cryptocurrency balance"}
-    except UserAsset.DoesNotExist:
-        return {"success": False, "error": "No balance found for this cryptocurrency"}
-    
-    # Get current price (in a real app, this would come from an exchange API)
-    current_price = Decimal('42500.00')  # Example price
-    
-    # Calculate total value
-    total_value = amount * current_price
-    
-    with transaction.atomic():
-        # Create an order
-        order = Order.objects.create(
-            user=user,
-            wallet=wallet,
-            cryptocurrency=crypto,
-            order_type='sell',
-            price=current_price,
-            amount=amount,
-            status='completed',
-            completed_at=timezone.now()
-        )
+        # Convert numeric values to Decimal for precision
+        current_price = Decimal(str(currentPrice))
+        coin_amount = Decimal(str(amount))
         
-        # Create a trade record
-        trade = Trade.objects.create(
-            buyer=None,  # In a real exchange, this would be the matched buyer
-            seller=user,
-            cryptocurrency=crypto,
-            buy_order=None,
-            sell_order=order,
-            price=current_price,
-            amount=amount,
-            fee=total_value * Decimal('0.001')  # 0.1% fee example
-        )
+        # Validate values are positive
+        if current_price <= 0:
+            return {"success": False, "error": "Price must be greater than zero"}
+        if coin_amount <= 0:
+            return {"success": False, "error": "Amount must be greater than zero"}
         
-        # Update wallet balances
-        crypto_balance.balance -= amount
-        crypto_balance.save()
+        # Get user and cryptocurrency
+        user = get_object_or_404(User, id=user_id)
+        crypto = get_object_or_404(Cryptocurrency, id=crypto_id)
         
-        # Add the value to wallet balance (minus fee)
-        fee_amount = total_value * Decimal('0.001')
-        wallet.available_balance += (total_value - fee_amount)
-        wallet.save()
+        # Find the user's wallet
+        try:
+            wallet = Wallet.objects.get(user_id=user.id)
+        except Wallet.DoesNotExist:
+            return {"success": False, "error": "Wallet not found"}
+        
+        # Check if user has enough crypto
+        try:
+            crypto_balance = UserAsset.objects.get(wallet=wallet, cryptocurrency=crypto)
+            if crypto_balance.balance < coin_amount:
+                return {"success": False, "error": "Insufficient cryptocurrency balance"}
+        except UserAsset.DoesNotExist:
+            return {"success": False, "error": "No balance found for this cryptocurrency"}
+        
+        # Calculate total value
+        total_value = coin_amount * current_price
+        fee = total_value * Decimal('0.001')  # 0.1% fee example
+        
+        try:
+            with transaction.atomic():
+                # Create the order - without execution_type
+                order = Order(
+                    user=user,
+                    wallet=wallet,
+                    cryptocurrency=crypto,
+                    order_type='sell',
+                    price=current_price,
+                    amount=coin_amount,
+                    status='completed',
+                    completed_at=timezone.now(),
+                    is_approved=True,
+                    is_declined=False
+                )
+                order.save()
+                
+                # Insert trade record directly using raw SQL to bypass ORM constraints
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO trading_trade 
+                        (price, amount, fee, executed_at, buyer_id, seller_id, cryptocurrency_id, buy_order_id, sell_order_id) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                        """,
+                        [
+                            current_price, coin_amount, fee, timezone.now(), user.id, user.id, 
+                            crypto.id, None, order.id
+                        ]
+                    )
+                    trade_id = cursor.fetchone()[0]
+                
+                # Update wallet balances
+                crypto_balance.balance -= coin_amount
+                crypto_balance.save()
+                
+                # Add the value to wallet balance (minus fee)
+                wallet.available_balance += (total_value - fee)
+                wallet.save()
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+        
+        return {
+            "success": True,
+            "order_id": order.id,
+            "trade_id": trade_id,
+            "price": current_price,
+            "amount": coin_amount,
+            "total_value": total_value,
+            "fee": fee
+        }
+    except Exception as e:
+        return {"success": False, "error": f"An unexpected error occurred: {str(e)}"}
     
-    return {
-        "success": True,
-        "order_id": order.id,
-        "trade_id": trade.id,
-        "price": current_price,
-        "amount": amount,
-        "total_value": total_value,
-        "fee": fee_amount
-    }
+    

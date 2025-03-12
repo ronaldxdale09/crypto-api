@@ -10,9 +10,11 @@ class OrderSchema(Schema):
     wallet_id: int
     crypto_id: int
     order_type: str  # 'buy' or 'sell'
-    execution_type: str #'market' or 'limit'
+    execution_type: str  # 'market' or 'limit'
     price: Decimal
     amount: Decimal
+    total_in_usd: Optional[Decimal] = None
+    fee: Optional[Decimal] = None
     status: str
     created_at: datetime
     completed_at: Optional[datetime] = None
@@ -41,8 +43,16 @@ class CreateOrderSchema(Schema):
     wallet_id: int
     crypto_id: int
     order_type: str  # 'buy' or 'sell'
-    execution_type: str # 'limit' or 'market'
+    execution_type: str  # 'limit' or 'market'
     price: Decimal
+    amount: Decimal
+
+class DepositSchema(Schema):
+    currentPrice: Decimal
+    totalAmount: Decimal
+
+class WithdrawSchema(Schema):
+    currentPrice: Decimal
     amount: Decimal
 
 class CancelOrderSchema(Schema):
