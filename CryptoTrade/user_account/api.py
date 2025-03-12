@@ -1,4 +1,4 @@
-from ninja import Router, UploadedFile, File
+from ninja import Router, UploadedFile, File, Form  
 from .models import *
 from .forms import *
 from django.contrib.auth.hashers import make_password
@@ -371,8 +371,13 @@ def upload_to_supabase(file, user_id, prefix):
         print(f"Upload failed: {response.status_code}, {response.text}")
         raise Exception(f"Failed to upload file to Supabase: {response.status_code} - {response.text}")
     
+
+
+
+
+
 #KYC upload image functionality
-@router.post('/upload-kyc/user={user_id}', 
+@router.post('/upload-kyc/', 
              tags=["User Account"],
              summary="Upload KYC documents")
 def upload_kyc(
@@ -389,8 +394,6 @@ def upload_kyc(
     This endpoint allows users to submit their identification documents for verification.
     """
     # Check if user exists
-    from yourapp.models import User, KnowYourCustomer  # Replace with your actual model import
-    
     user = get_object_or_404(User, id=user_id)
     
     # Prevent duplicate KYC records
