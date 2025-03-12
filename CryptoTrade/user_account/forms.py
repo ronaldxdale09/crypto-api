@@ -38,7 +38,7 @@ class SingupUserSchema(Schema):
     email: str
     password:str
     confirm_password:str
-
+    
 class LoginUserSchema(BaseModel):
     email: str
     password:str

@@ -137,36 +137,70 @@ def cancel_order(request, order_id: int, form: CancelOrderSchema):
         "status": order.status
     }
 
-@router.get('/orders/{user_id}', response=OrderListResponseSchema)
-def get_user_orders(request, user_id: int, status: str = None):
-    """Get all orders for a user, optionally filtered by status."""
-    user = get_object_or_404(User, id=user_id)
+# @router.get('/orders/{user_id}', response=OrderListResponseSchema)
+# def get_user_orders(request, user_id: int, status: str = None):
+#     """Get all orders for a user, optionally filtered by status."""
+#     user = get_object_or_404(User, id=user_id)
     
-    query = Q(user=user)
-    if status:
-        query &= Q(status=status)
+#     query = Q(user=user)
+#     if status:
+#         query &= Q(status=status)
     
-    orders = Order.objects.filter(query).order_by('-created_at')
+#     orders = Order.objects.filter(query).order_by('-created_at')
     
-    result = []
-    for order in orders:
-        result.append({
-            "id": order.id,
-            "user_id": order.user.id,
-            "wallet_id": order.wallet.id,
-            "crypto_id": order.cryptocurrency.id,
-            "order_type": order.order_type,
-            "price": order.price,
-            "amount": order.amount,
-            "status": order.status,
-            "created_at": order.created_at,
-            "completed_at": order.completed_at
-        })
+#     result = []
+#     for order in orders:
+#         result.append({
+#             "id": order.id,
+#             "user_id": order.user.id,
+#             "wallet_id": order.wallet.id,
+#             "crypto_id": order.cryptocurrency.id,
+#             "order_type": order.order_type,
+#             "price": order.price,
+#             "amount": order.amount,
+#             "status": order.status,
+#             "created_at": order.created_at,
+#             "completed_at": order.completed_at
+#         })
     
-    return {
-        "orders": result,
-        "count": len(result)
-    }
+#     return {
+#         "orders": result,
+#         "count": len(result)
+#     }
+dir
+@router.get('/order/user={user_id}')
+def get_user_orders(request, user_id: int):
+    # Get user instance
+        user_instance = User.objects.get(id=user_id)
+
+        # Get wallet associated with the user
+        wallet_instance = Wallet.objects.get(user_id=user_instance.id)
+
+        # Get all orders for the wallet
+        orders = Order.objects.filter(wallet=wallet_instance).order_by('-created_at')
+
+        # Serialize orders
+        result = [
+            {
+                "id": order.id,
+                "user_id": order.user.id,
+                "wallet_id": order.wallet.id,
+                "crypto_id": order.cryptocurrency.id,
+                "order_type": order.order_type,
+                "execution_type": order.execution_type,
+                "price": str(order.price),
+                "amount": str(order.amount),
+                "status": order.status,
+                "created_at": order.created_at.isoformat(),
+                "completed_at": order.completed_at.isoformat() if order.completed_at else None,
+                "is_approved": order.is_approved,
+                "is_declined": order.is_declined,
+            }
+            for order in orders
+        ]
+
+        return {"orders": result, "count": len(result)}
+
 
 @router.get('/trades/{user_id}', response=TradeListResponseSchema)
 def get_user_trades(request, user_id: int):

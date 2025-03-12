@@ -135,12 +135,18 @@ def signup_user(request, form:SingupUserSchema):
 
     if form.password != form.confirm_password:
         return {"error": "Password do not match!"}
-    
+   
     user = User.objects.create(
         email=form.email,
         password=make_password(form.password),
     )
     print("Received data:", form.email, form.password, form.confirm_password)
+
+    # Assign 'Client' role to the user
+    client_role = Role.objects.get(role='client')
+    user.role_id.add(client_role)
+
+
     #Creating wallet instance
     wallet = Wallet.objects.create()
     wallet.user_id.add(user)
@@ -156,7 +162,8 @@ def signup_user(request, form:SingupUserSchema):
     "user_id": user.id,
     "email": user.email,
     "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=24)
-}
+    }
+
     JWT_SIGNING_KEY = getattr(settings, "JWT_SIGNING_KEY", None)
     encoded_token = jwt.encode(payload, JWT_SIGNING_KEY, algorithm="HS256")
     print(encoded_token)
@@ -169,8 +176,10 @@ def signup_user(request, form:SingupUserSchema):
         "success": "The account was successfully signed up!",
         "user_id": user.id,
         "wallet_id": wallet.id,
+        'jwt_token': encoded_token,
+        "role": "Client",
         "cryptocurrencies": [crypto.symbol for crypto in cryptocurrencies],
-        'jwt_token': encoded_token
+        
     }
 
 #To generate a code for referral
