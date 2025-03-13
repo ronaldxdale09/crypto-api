@@ -24,6 +24,15 @@ import datetime
 
 router = Router()
 
+API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
+WALLET_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/user-wallets"
+def get_headers():
+    return {
+        "Authorization": f"Bearer {API_KEY}",
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+
 class AuthBearer(HttpBearer):
     def authenticate(self, request, token):
         try:
@@ -48,6 +57,20 @@ class KYCUploadSchema(Schema):
 #     payload = {"email": user.email}
 #     token = jwt.encode(payload, JWT_SIGNING_KEY, algorithm="HS256")
 #     return token
+
+def generate_uid(length=8):
+    characters = string.ascii_letters + string.digits
+    return ''.join(random.choices(characters, k=length))
+
+#To generate a code for referral
+def RandomReferralCodeGenerator(length=8):
+    characters = string.ascii_letters + string.digits
+    return ''.join(random.choices(characters, k=length))
+
+#To generate a secret phrase
+def SecretPhraseGenerator(length=12):
+    code = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(code) for _ in range(length))
 
 #Get Function
 @router.get('/getUser', response=list[UserSchema])
@@ -140,21 +163,34 @@ def signup_user(request, form:SingupUserSchema):
 
     if form.password != form.confirm_password:
         return {"error": "Password do not match!"}
+    
+    referral_code = RandomReferralCodeGenerator()
+    secret_phrase = SecretPhraseGenerator()
+    uid = generate_uid()
    
     user = User.objects.create(
         email=form.email,
         password=make_password(form.password),
+        referral_code = referral_code,
+        secret_phrase = secret_phrase,
+        uid = uid
     )
     print("Received data:", form.email, form.password, form.confirm_password)
+
+
 
     # Assign 'Client' role to the user
     client_role = Role.objects.get(role='client')
     user.role_id.add(client_role)
 
-
-    #Creating wallet instance
-    wallet = Wallet.objects.create()
+    # Create wallet linked to user
+    wallet = Wallet.objects.create(
+        available_balance=0,
+        wallet_address=None,
+        is_active=True
+    )
     wallet.user_id.add(user)
+
 
     # Initialize UserAsset for each cryptocurrency
     cryptocurrencies = Cryptocurrency.objects.all()
@@ -175,49 +211,38 @@ def signup_user(request, form:SingupUserSchema):
     user.jwt_token = encoded_token
     user.save()
         
-
     return {
-    
         "success": "The account was successfully signed up!",
         "user_id": user.id,
         "wallet_id": wallet.id,
         'jwt_token': encoded_token,
         "role": "Client",
+        "referral_code": referral_code,
+        "secret_phrase": secret_phrase,
+        "uid": uid,
         "cryptocurrencies": [crypto.symbol for crypto in cryptocurrencies],
-        
     }
 
-#To generate a code for referral
-def RandomReferralCodeGenerator(length=8):
-    characters = string.ascii_letters + string.digits
-    return ''.join(random.choices(characters, k=length))
 
-#To generate a secret phrase
-def SecretPhraseGenerator(length=12):
-    code = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(code) for _ in range(length))
 
 #To create user details/addtional signup info needed
 @router.post('/user_details/{userId}')
 def user_details(request, userId: int, form: CreateUserDetailSchema):
     user_instance = get_object_or_404(User, id=userId)
-    referral_code = form.referral_code or RandomReferralCodeGenerator()
-    secret_phrase = form.secret_phrase or SecretPhraseGenerator()
+
     user_detail=UserDetail.objects.create(
         user_id = user_instance,
         phone_number=form.phone_number,
-        secret_phrase=secret_phrase,
         tier=form.tier,
         trading_fee_rate = form.trading_fee_rate,
         ip_address = form.ip_address,
-        referral_code = referral_code,
     )
     user_detail.save()
     return{
         "success": True,
         "user_detail_id": user_detail.id,
         "referral_code": user_detail.referral_code,
-        "secret_phrase": user_detail.secret_phrase
+        "secret_phrase": user_detail.secret_phrase,
     }
 
 #UPDATE

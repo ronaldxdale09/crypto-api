@@ -58,14 +58,14 @@ class UpdateUserSchema(Schema):
 
 class CreateUserDetailSchema(Schema):
     phone_number: str 
-    secret_phrase: str 
+ 
     is_verified: bool
     tier: bool 
     trading_fee_rate: str 
     ip_address: str 
     last_login_session: str 
     previous_ip_address: str 
-    referral_code: str
+
     status: str
     role:str
 

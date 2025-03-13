@@ -112,6 +112,9 @@ TEMPLATES = [
 WSGI_APPLICATION = 'CryptoTrade.wsgi.application'
 
 
+
+WALLET_API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
+
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
