@@ -26,6 +26,9 @@ router = Router()
 
 API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
 WALLET_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/user-wallets"
+
+
+
 def get_headers():
     return {
         "Authorization": f"Bearer {API_KEY}",
@@ -151,7 +154,8 @@ def user_login(request, form: LoginUserSchema):
 
 #CREATE
 #user registration functionality
-@router.post('/signup')
+@router.post('/signup',
+             tags=["User Account"],)
 def signup_user(request, form:SingupUserSchema):
     try:
         validate_email(form.email)
@@ -177,8 +181,6 @@ def signup_user(request, form:SingupUserSchema):
     )
     print("Received data:", form.email, form.password, form.confirm_password)
 
-
-
     # Assign 'Client' role to the user
     client_role = Role.objects.get(role='client')
     user.role_id.add(client_role)
@@ -191,7 +193,6 @@ def signup_user(request, form:SingupUserSchema):
     )
     wallet.user_id.add(user)
 
-
     # Initialize UserAsset for each cryptocurrency
     cryptocurrencies = Cryptocurrency.objects.all()
     UserAsset.objects.bulk_create([
@@ -199,22 +200,53 @@ def signup_user(request, form:SingupUserSchema):
         for crypto in cryptocurrencies
     ])
 
+    # Generate JWT token
     payload = {
-    "user_id": user.id,
-    "email": user.email,
-    "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+        "user_id": user.id,
+        "email": user.email,
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=24)
     }
 
     JWT_SIGNING_KEY = getattr(settings, "JWT_SIGNING_KEY", None)
     encoded_token = jwt.encode(payload, JWT_SIGNING_KEY, algorithm="HS256")
-    print(encoded_token)
     user.jwt_token = encoded_token
     user.save()
+    
+    # Send UID to wallet API
+    import requests
+    
+    API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
+    WALLET_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/user-details"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    
+    # You can either send as query parameter
+    api_response = requests.post(
+        f"{WALLET_API_URL}?apikey={API_KEY}",
+        json={"uid": uid},
+        headers=headers
+    )
+    
+    # Or alternatively as part of the JSON body
+    # api_response = requests.post(
+    #     WALLET_API_URL,
+    #     json={"uid": uid, "apikey": API_KEY},
+    #     headers=headers
+    # )
+    
+    # Check if API call was successful
+    if api_response.status_code != 200:
+        # If API call failed, you may want to delete the created user
+        # or handle the error differently
+        User.objects.filter(id=user.id).delete()
+        return {"error": f"Failed to register with wallet service: {api_response.text}"}
         
     return {
         "success": "The account was successfully signed up!",
         "user_id": user.id,
-        "wallet_id": wallet.id,
         'jwt_token': encoded_token,
         "role": "Client",
         "referral_code": referral_code,
@@ -222,7 +254,6 @@ def signup_user(request, form:SingupUserSchema):
         "uid": uid,
         "cryptocurrencies": [crypto.symbol for crypto in cryptocurrencies],
     }
-
 
 
 #To create user details/addtional signup info needed
