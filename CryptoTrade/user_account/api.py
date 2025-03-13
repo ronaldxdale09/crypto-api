@@ -229,13 +229,7 @@ def signup_user(request, form:SingupUserSchema):
         json={"uid": uid},
         headers=headers
     )
-    
-    # Or alternatively as part of the JSON body
-    # api_response = requests.post(
-    #     WALLET_API_URL,
-    #     json={"uid": uid, "apikey": API_KEY},
-    #     headers=headers
-    # )
+
     
     # Check if API call was successful
     if api_response.status_code != 200:
