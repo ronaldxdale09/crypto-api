@@ -42,7 +42,6 @@ class Order(models.Model):
     
 class Trade(models.Model):
     buyer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='purchases', null=True, blank=True)
-    seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sales', null=True, blank=True)
     cryptocurrency = models.ForeignKey(Cryptocurrency, on_delete=models.CASCADE, related_name='trades')
     buy_order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='buy_trade', null=True)
     sell_order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='sell_trade', null=True)

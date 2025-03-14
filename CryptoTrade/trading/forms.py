@@ -22,7 +22,6 @@ class OrderSchema(Schema):
 class TradeSchema(Schema):
     id: int
     buyer_id: int
-    seller_id: int
     crypto_id: int
     price: Decimal
     amount: Decimal
