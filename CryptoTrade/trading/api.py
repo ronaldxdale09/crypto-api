@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
-
+import requests 
 from user_account.models import User
 from crypto_currency.models import Cryptocurrency
 from wallet.models import Wallet, UserAsset
@@ -232,28 +232,53 @@ def buy_crypto(request, user_id: int, crypto_id: int, currentPrice: float, total
         crypto = get_object_or_404(Cryptocurrency, id=crypto_id)
         
         # Find the user's wallet
-        try:
-            wallet = Wallet.objects.get(user_id=user.id)
-        except Wallet.DoesNotExist:
-            return {"success": False, "error": "Wallet not found"}
+        # try:
+        #     wallet = Wallet.objects.get(user_id=user.id)
+        # except Wallet.DoesNotExist:
+        #     return {"success": False, "error": "Wallet not found"}
         
         # Calculate coin amount based on total USD amount and price
         coin_amount = total_amount / current_price
+        API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
+        uid = user.uid
+        WALLET_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/user-wallets"
+
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+
+        api_response = requests.get(
+            f"{WALLET_API_URL}/{uid}?apikey={API_KEY}",
+            headers=headers
+        )
+
+        if api_response.status_code != 200:
+            return {"success": False, "error": "Failed to fetch wallet data"}
         
+        wallet_data = api_response.json()
+        spot_wallet_balance = Decimal(wallet_data[0]['spot_wallet'])
+        # wallet_id = wallet_data[0]['wallet_id']
         # Calculate fee
         fee = total_amount * Decimal('0.001')  # 0.1% fee example
         total_with_fee = total_amount + fee
+
+         # Check if there's enough balance in spot wallet
+        if spot_wallet_balance < total_with_fee:
+            return {"success": False, "error": "Insufficient spot wallet balance"}
         
-        # Check if user has enough balance
-        if wallet.available_balance < total_with_fee:
-            return {"success": False, "error": "Insufficient balance"}
+        #   # New spot wallet balance after deduction
+        # new_spot_wallet_balance = spot_wallet_balance - total_with_fee
+        
+        # # Check if user has enough balance
+        # if wallet.available_balance < total_with_fee:
+        #     return {"success": False, "error": "Insufficient balance"}
         
         try:
             with transaction.atomic():
                 # Create the order - without execution_type
                 order = Order(
                     user=user,
-                    wallet=wallet,
                     cryptocurrency=crypto,
                     order_type='buy',
                     price=current_price,
@@ -283,12 +308,12 @@ def buy_crypto(request, user_id: int, crypto_id: int, currentPrice: float, total
                     trade_id = cursor.fetchone()[0]
                 
                 # Update wallet balances
-                wallet.available_balance -= total_with_fee
-                wallet.save()
+                # wallet.available_balance -= total_with_fee
+                # wallet.save()
                 
                 # Update or create crypto balance
                 crypto_balance, created = UserAsset.objects.get_or_create(
-                    wallet=wallet,
+                    # wallet=wallet,
                     cryptocurrency=crypto,
                     defaults={"balance": 0}
                 )
