@@ -278,7 +278,7 @@ def buy_crypto(request, user_id: int, crypto_id: int, currentPrice: float, total
         
         try:
             with transaction.atomic():
-                # Create the order - without execution_type
+                # Create the order -
                 order = Order(
                     user=user,
                     cryptocurrency=crypto,
