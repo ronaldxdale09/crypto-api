@@ -16,6 +16,196 @@ from .forms import *
 
 router = Router()
 
+ORDER_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/orders"
+WALLET_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/user-wallets"
+API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
+
+def create_external_order(order_data):
+    """
+    Create an order using the external API.
+    
+    Args:
+        order_data (dict): Order data containing:
+            - uid: User identifier
+            - coin_pair_id: Coin pair identifier
+            - wallet_id: Wallet identifier
+            - order_type: 'buy' or 'sell'
+            - excecution_type: 'market' or 'limit'
+            - price: Order price
+            - amount: Order amount
+            - total_in_usdt: Total order value in USDT
+    
+    Returns:
+        dict: {
+            'success': bool,
+            'order_data': dict or None,
+            'order_id': str or None,
+            'error': str or None
+        }
+    """
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    
+    # Add API key to the order data
+    payload = {
+        'apikey': API_KEY,
+        **order_data
+    }
+    
+    try:
+        api_response = requests.post(
+            ORDER_API_URL,
+            json=payload,
+            headers=headers,
+            timeout=10  # Set timeout to avoid hanging requests
+        )
+        
+        # Check if request was successful
+        if api_response.status_code not in (200, 201):
+            return {
+                'success': False,
+                'order_data': None,
+                'order_id': None,
+                'error': f"API request failed with status code: {api_response.status_code}. Response: {api_response.text}"
+            }
+        
+        # Parse response data
+        response_data = api_response.json()
+        
+        # Check if order data exists in response
+        if not response_data or not isinstance(response_data, dict):
+            return {
+                'success': False,
+                'order_data': None,
+                'order_id': None,
+                'error': "Invalid response format from API"
+            }
+        
+        # Extract order ID or relevant data
+        order_id = response_data.get('order_id')
+        
+        return {
+            'success': True,
+            'order_data': response_data,
+            'order_id': order_id,
+            'error': None
+        }
+    
+    except requests.RequestException as e:
+        # Handle network-related errors
+        return {
+            'success': False,
+            'order_data': None,
+            'order_id': None,
+            'error': f"Network error: {str(e)}"
+        }
+    except (ValueError, KeyError, TypeError) as e:
+        # Handle data parsing errors
+        return {
+            'success': False,
+            'order_data': None,
+            'order_id': None,
+            'error': f"Data parsing error: {str(e)}"
+        }
+    except Exception as e:
+        # Handle any other unexpected errors
+        return {
+            'success': False,
+            'order_data': None,
+            'order_id': None,
+            'error': f"Unexpected error: {str(e)}"
+        }
+    
+
+
+def get_user_wallet(uid):
+    """
+    Get user wallet information from the external wallet API.
+    
+    Args:
+        uid (str): User identifier
+        
+    Returns:
+        dict: {
+            'success': bool,
+            'wallet_data': list or None,
+            'spot_balance': Decimal or None,
+            'error': str or None
+        }
+    """
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    
+    try:
+        api_response = requests.get(
+            f"{WALLET_API_URL}/{uid}?apikey={API_KEY}",
+            headers=headers,
+            timeout=10  # Set timeout to avoid hanging requests
+        )
+        
+        # Check if request was successful
+        if api_response.status_code != 200:
+            return {
+                'success': False,
+                'wallet_data': None,
+                'spot_balance': None,
+                'error': f"API request failed with status code: {api_response.status_code}"
+            }
+        
+        # Parse wallet data
+        wallet_data = api_response.json()
+        
+        # Check if wallet data exists
+        if not wallet_data or not isinstance(wallet_data, list) or len(wallet_data) == 0:
+            return {
+                'success': False,
+                'wallet_data': None,
+                'spot_balance': None,
+                'error': "No wallet data found"
+            }
+        
+        # Extract spot wallet balance
+        spot_wallet_balance = Decimal(wallet_data[0]['spot_wallet'])
+        
+        return {
+            'success': True,
+            'wallet_data': wallet_data,
+            'spot_balance': spot_wallet_balance,
+            'error': None
+        }
+    
+    except requests.RequestException as e:
+        # Handle network-related errors
+        return {
+            'success': False,
+            'wallet_data': None,
+            'spot_balance': None,
+            'error': f"Network error: {str(e)}"
+        }
+    except (ValueError, KeyError, TypeError) as e:
+        # Handle data parsing errors
+        return {
+            'success': False,
+            'wallet_data': None,
+            'spot_balance': None,
+            'error': f"Data parsing error: {str(e)}"
+        }
+    except Exception as e:
+        # Handle any other unexpected errors
+        return {
+            'success': False,
+            'wallet_data': None,
+            'spot_balance': None,
+            'error': f"Unexpected error: {str(e)}"
+        }
+
+
+
+
 # Trading Pairs
 @router.get('/pairs', response=TradingPairListResponseSchema)
 def get_trading_pairs(request):
@@ -56,63 +246,98 @@ def get_market_data(request, pair_id: int):
         "change_24h": Decimal('-0.58')
     }
 
-# Orders
-@router.post('/order', response=OrderResponseSchema)
+# Orders@router.post('/order', response=OrderResponseSchema)
 def create_order(request, form: CreateOrderSchema):
     """Create a buy or sell order (market or limit)."""
-    user = get_object_or_404(User, id=form.user_id)
-    wallet = get_object_or_404(Wallet, id=form.wallet_id)
-    crypto = get_object_or_404(Cryptocurrency, id=form.crypto_id)
-    
-    # Validate order type
-    if form.order_type not in ['buy', 'sell']:
-        return {"success": False, "error": "Invalid order type"}
-    
-    # Validate order execution type (market or limit)
-    if form.execution_type not in ['market', 'limit']:
-        return {"success": False, "error": "Invalid execution type"}
-
     try:
+        user = get_object_or_404(User, id=form.user_id)
+        wallet = get_object_or_404(Wallet, id=form.wallet_id)
+        crypto = get_object_or_404(Cryptocurrency, id=form.crypto_id)
+        
+        # Validate order type
+        if form.order_type not in ['buy', 'sell']:
+            return {"success": False, "error": "Invalid order type"}
+        
+        # Validate order execution type (market or limit)
+        if form.execution_type not in ['market', 'limit']:
+            return {"success": False, "error": "Invalid execution type"}
+
+        # Calculate total amount in USDT
+        if form.execution_type == 'limit':
+            total_in_usdt = form.price * form.amount
+        else:  # market order
+            total_in_usdt = form.amount  # For market orders, amount is total USDT value
+        
+        # For buy orders, check if user has enough balance
         if form.order_type == 'buy':
-            total_cost = form.price * form.amount if form.execution_type == 'limit' else form.amount
-            if wallet.available_balance < total_cost:
-                return {"success": False, "error": "Insufficient balance"}
+            wallet_result = get_user_wallet(user.uid)
+            if not wallet_result['success']:
+                return {"success": False, "error": wallet_result['error']}
+                
+            spot_wallet_balance = wallet_result['spot_balance']
+            if spot_wallet_balance < total_in_usdt:
+                return {"success": False, "error": "Insufficient balance in spot wallet"}
+                
+        # For sell orders, check if user has enough of the cryptocurrency
         else:  # sell
-            wallet_balance = UserAsset.objects.get(wallet=wallet, cryptocurrency=crypto)
-            if wallet_balance.balance < form.amount:
-                return {"success": False, "error": "Insufficient cryptocurrency balance"}
-    except UserAsset.DoesNotExist:
-        return {"success": False, "error": "No balance found for this cryptocurrency"}
-    
-    # Create the order
-    with transaction.atomic():
-        order = Order.objects.create(
-            user=user,
-            wallet=wallet,
-            cryptocurrency=crypto,
-            order_type=form.order_type,
-            execution_type=form.execution_type,
-            price=form.price if form.execution_type == 'limit' else None,
-            amount=form.amount,
-            status='pending'
-        )
-    
-    return {
-        "success": True,
-        "order": {
-            "id": order.id,
-            "user_id": order.user.id,
-            "wallet_id": order.wallet.id,
-            "crypto_id": order.cryptocurrency.id,
-            "order_type": order.order_type,
-            "execution_type": order.execution_type,
-            "price": order.price,
-            "amount": order.amount,
-            "status": order.status,
-            "created_at": order.created_at,
-            "completed_at": order.completed_at
+            try:
+                wallet_balance = UserAsset.objects.get(cryptocurrency=crypto)
+                if wallet_balance.balance < form.amount:
+                    return {"success": False, "error": "Insufficient cryptocurrency balance"}
+            except UserAsset.DoesNotExist:
+                return {"success": False, "error": "No balance found for this cryptocurrency"}
+        
+        # Prepare data for external API call
+        order_data = {
+            'uid': user.uid,
+            'coin_pair_id': crypto.external_id,  # Assuming the cryptocurrency has an external_id field
+            'wallet_id': wallet.external_id,  # Assuming the wallet has an external_id field
+            'order_type': form.order_type,
+            'excecution_type': form.execution_type,
+            'price': float(form.price) if form.execution_type == 'limit' else 0,
+            'amount': float(form.amount),
+            'total_in_usdt': float(total_in_usdt)
         }
-    }
+        
+        # Call external API to create order
+        api_result = create_external_order(order_data)
+        
+        if not api_result['success']:
+            return {"success": False, "error": api_result['error']}
+        
+        # Create local record of the order
+        with transaction.atomic():
+            order = Order.objects.create(
+                user=user,
+                wallet=wallet,
+                cryptocurrency=crypto,
+                order_type=form.order_type,
+                execution_type=form.execution_type,
+                price=form.price if form.execution_type == 'limit' else None,
+                amount=form.amount,
+                status='pending',
+                external_order_id=api_result['order_id']  # Store the external order ID
+            )
+        
+        return {
+            "success": True,
+            "order": {
+                "id": order.id,
+                "user_id": order.user.id,
+                "wallet_id": order.wallet.id,
+                "crypto_id": order.cryptocurrency.id,
+                "order_type": order.order_type,
+                "execution_type": order.execution_type,
+                "price": order.price,
+                "amount": order.amount,
+                "status": order.status,
+                "created_at": order.created_at,
+                "completed_at": order.completed_at,
+                "external_order_id": order.external_order_id
+            }
+        }
+    except Exception as e:
+        return {"success": False, "error": f"An unexpected error occurred: {str(e)}"}
 
 @router.post('/order/{order_id}/cancel')
 def cancel_order(request, order_id: int, form: CancelOrderSchema):
@@ -200,7 +425,6 @@ def get_user_trades(request, user_id: int):
         "count": len(result)
     }
 
-
 @router.post('/trading/buy/{user_id}/{crypto_id}', tags=["Trading"])
 def buy_crypto(request, user_id: int, crypto_id: int, currentPrice: float, totalAmount: float):
     """
@@ -230,102 +454,93 @@ def buy_crypto(request, user_id: int, crypto_id: int, currentPrice: float, total
         # Get user and cryptocurrency
         user = get_object_or_404(User, id=user_id)
         crypto = get_object_or_404(Cryptocurrency, id=crypto_id)
-        
-        # Find the user's wallet
-        # try:
-        #     wallet = Wallet.objects.get(user_id=user.id)
-        # except Wallet.DoesNotExist:
-        #     return {"success": False, "error": "Wallet not found"}
-        
+
         # Calculate coin amount based on total USD amount and price
         coin_amount = total_amount / current_price
-        API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
-        uid = user.uid
-        WALLET_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/user-wallets"
-
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        }
-
-        api_response = requests.get(
-            f"{WALLET_API_URL}/{uid}?apikey={API_KEY}",
-            headers=headers
-        )
-
-        if api_response.status_code != 200:
-            return {"success": False, "error": "Failed to fetch wallet data"}
         
-        wallet_data = api_response.json()
-        spot_wallet_balance = Decimal(wallet_data[0]['spot_wallet'])
-        # wallet_id = wallet_data[0]['wallet_id']
+        # Get user wallet data using the reusable function
+        wallet_result = get_user_wallet(user.uid)
+        if not wallet_result['success']:
+            return {"success": False, "error": wallet_result['error']}
+
+        wallet_data = wallet_result['wallet_data']
+        spot_wallet_balance = wallet_result['spot_balance']
+        wallet_id = wallet_data[0]['id']  # Get wallet ID from external API
+        
         # Calculate fee
         fee = total_amount * Decimal('0.001')  # 0.1% fee example
         total_with_fee = total_amount + fee
 
-         # Check if there's enough balance in spot wallet
+        # Check if there's enough balance in spot wallet
         if spot_wallet_balance < total_with_fee:
             return {"success": False, "error": "Insufficient spot wallet balance"}
         
-        #   # New spot wallet balance after deduction
-        # new_spot_wallet_balance = spot_wallet_balance - total_with_fee
+        # Prepare data for external order API
+        order_data = {
+            'uid': user.uid,
+            'coin_pair_id': crypto.external_id,  # Assuming crypto has external_id field
+            'wallet_id': wallet_id,
+            'order_type': 'buy',
+            'excecution_type': 'market',  # Market order
+            'price': float(current_price),
+            'amount': float(coin_amount),
+            'total_in_usdt': float(total_amount)
+        }
         
-        # # Check if user has enough balance
-        # if wallet.available_balance < total_with_fee:
-        #     return {"success": False, "error": "Insufficient balance"}
+        # Call external API to create order
+        api_result = create_external_order(order_data)
+        if not api_result['success']:
+            return {"success": False, "error": api_result['error']}
+            
+        external_order_id = api_result['order_id']
         
         try:
             with transaction.atomic():
-                # Create the order -
+                # Create local order record
                 order = Order(
                     user=user,
                     cryptocurrency=crypto,
                     order_type='buy',
+                    execution_type='market',
                     price=current_price,
                     amount=coin_amount,
                     status='completed',
                     completed_at=timezone.now(),
                     is_approved=True,
-                    is_declined=False
+                    is_declined=False,
+                    external_order_id=external_order_id
                 )
                 order.save()
                 
-                # Insert trade record directly using raw SQL to bypass ORM constraints
-                from django.db import connection
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        """
-                        INSERT INTO trading_trade 
-                        (price, amount, fee, executed_at, buyer_id, cryptocurrency_id, buy_order_id, sell_order_id) 
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                        RETURNING id
-                        """,
-                        [
-                            current_price, coin_amount, fee, timezone.now(), user.id, 
-                            crypto.id, order.id, None
-                        ]
-                    )
-                    trade_id = cursor.fetchone()[0]
+                # Create trade record
+                trade = Trade(
+                    price=current_price,
+                    amount=coin_amount,
+                    fee=fee,
+                    executed_at=timezone.now(),
+                    buyer=user,
+                    cryptocurrency=crypto,
+                    buy_order=order,
+                    sell_order=None
+                )
+                trade.save()
+                trade_id = trade.id
                 
-                # Update wallet balances
-                # wallet.available_balance -= total_with_fee
-                # wallet.save()
-                
-                # Update or create crypto balance
+                # Update or create crypto balance locally
                 crypto_balance, created = UserAsset.objects.get_or_create(
-                    # wallet=wallet,
                     cryptocurrency=crypto,
                     defaults={"balance": 0}
                 )
                 crypto_balance.balance += coin_amount
                 crypto_balance.save()
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": f"Local database error: {str(e)}"}
         
         return {
             "success": True,
             "order_id": order.id,
             "trade_id": trade_id,
+            "external_order_id": external_order_id,
             "price": current_price,
             "coin_amount": coin_amount,
             "total_amount": total_amount,
@@ -333,7 +548,8 @@ def buy_crypto(request, user_id: int, crypto_id: int, currentPrice: float, total
         }
     except Exception as e:
         return {"success": False, "error": f"An unexpected error occurred: {str(e)}"}
-
+    
+    
 @router.post('/trading/sell/{user_id}/{crypto_id}', tags=["Trading"])
 def sell_crypto(request, user_id: int, crypto_id: int, currentPrice: float, amount: float):
     """

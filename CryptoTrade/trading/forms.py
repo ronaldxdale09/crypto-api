@@ -8,7 +8,7 @@ class OrderSchema(Schema):
     id: int
     user_id: int
     wallet_id: int
-    crypto_id: int
+    coin_id: int
     order_type: str  # 'buy' or 'sell'
     execution_type: str  # 'market' or 'limit'
     price: Decimal
@@ -22,7 +22,7 @@ class OrderSchema(Schema):
 class TradeSchema(Schema):
     id: int
     buyer_id: int
-    crypto_id: int
+    coin_id: int
     price: Decimal
     amount: Decimal
     fee: Decimal
@@ -40,7 +40,7 @@ class TradingPairSchema(Schema):
 class CreateOrderSchema(Schema):
     user_id: int
     wallet_id: int
-    crypto_id: int
+    coin_id: int
     order_type: str  # 'buy' or 'sell'
     execution_type: str  # 'limit' or 'market'
     price: Decimal
