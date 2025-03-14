@@ -20,8 +20,9 @@ from django.conf import settings
 import requests 
 from ninja.security import HttpBearer
 import datetime
+from functools import lru_cache
+import ipaddress
 import socket
-from ipaddress import IPv4Address, IPv6Address, ip_address as parse_ip_address
 
 
 router = Router()
@@ -125,91 +126,150 @@ def user_information(request, user_id: int):
     }
 
     return JsonResponse(data)
-
-def get_client_ipv4_starting_with_158(request):
-    """Extract client's IPv4 address that starts with 158"""
+def get_user_ip(request):
+    """
+    Get the most reliable user IP address in a single function.
+    Prioritizes public IP from external services over request headers.
+    
+    Args:
+        request: The HTTP request object
+        
+    Returns:
+        str: The user's public IP address or "Unknown"
+    """
+    # Step 1: Try to get client IP from request headers
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    client_ip = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else request.META.get('REMOTE_ADDR')
     
-    candidate_ips = []
-    if x_forwarded_for:
-        # X-Forwarded-For header might contain multiple IPs
-        candidate_ips = [ip.strip() for ip in x_forwarded_for.split(',')]
-    
-    # Add REMOTE_ADDR as a fallback
-    remote_addr = request.META.get('REMOTE_ADDR')
-    if remote_addr:
-        candidate_ips.append(remote_addr)
-    
-    # Check all candidate IPs
-    for ip_str in candidate_ips:
+    # Step 2: Check if client IP is private or if we should get public IP anyway
+    is_private = True
+    if client_ip:
         try:
-            # Parse the IP address string to verify it's valid
-            ip_obj = parse_ip_address(ip_str)
-            
-            # Check if it's IPv4 and starts with 158
-            if isinstance(ip_obj, IPv4Address) and ip_str.startswith('158.'):
-                return ip_str
+            is_private = ipaddress.ip_address(client_ip).is_private
         except ValueError:
-            # Not a valid IP address
-            continue
+            pass
     
-    # If we couldn't find an IP starting with 158, return the first valid IPv4
-    for ip_str in candidate_ips:
+    # Step 3: If client IP is private or we want to ensure we get public IP
+    if is_private:
+        # Use cached function for better performance
+        public_ip = _get_public_ip()
+        if public_ip:
+            return public_ip
+    
+    # Step 4: Return non-private client IP if available
+    if client_ip and not is_private:
+        return client_ip
+    
+    # Step 5: Final fallback
+    return "Unknown"
+
+@lru_cache(maxsize=128)
+def _get_public_ip():
+    """
+    Internal cached function to get public IP from external services.
+    """
+    services = [
+        'https://api.ipify.org',
+        'https://ifconfig.me/ip',
+        'https://ipinfo.io/ip',
+        'https://icanhazip.com'
+    ]
+    
+    for service in services:
         try:
-            ip_obj = parse_ip_address(ip_str)
-            if isinstance(ip_obj, IPv4Address):
-                return ip_str
-        except ValueError:
+            response = requests.get(service, timeout=3)
+            if response.status_code == 200:
+                ip = response.text.strip()
+                if ip:
+                    try:
+                        # Validate it's not a private IP
+                        if not ipaddress.ip_address(ip).is_private:
+                            return ip
+                    except ValueError:
+                        continue
+        except Exception:
             continue
     
     return None
 
-
-#Login Function
 @router.post('/login')
 def user_login(request, form: LoginUserSchema):
+    """
+    User login endpoint.
+    
+    Validates email and password, updates IP information,
+    and returns user credentials and IP address.
+    
+    Args:
+        request: The HTTP request object
+        form: Login form with email and password
+        
+    Returns:
+        dict: Login response with user information and IP address
+    """
+    # Step 1: Validate email format
     try:
         validate_email(form.email)
     except ValidationError:
-        return {"error": "Invalid email format"}
+        return {
+            "success": False,
+            "error": "Invalid email format"
+        }
     
-    user_instance = get_object_or_404(User, email=form.email)
-    user_id = user_instance.id
-
-    if not check_password(form.password, user_instance.password):
-        return {"error": "Invalid email or password!"}
+    # Step 2: Get and verify user
+    try:
+        user = get_object_or_404(User, email=form.email)
+    except:
+        return {
+            "success": False,
+            "error": "User not found"
+        }
     
-    # wallet_instance = Wallet.objects.get(user_id=user_id)
-    # if not wallet_instance:
-    #     return {"error": "Wallet not found for this user"}
+    # Step 3: Verify password
+    if not check_password(form.password, user.password):
+        return {
+            "success": False, 
+            "error": "Invalid email or password"
+        }
     
-    # Get user's IPv4 address - preferring ones starting with 158
-    ipv4_address = get_client_ipv4_starting_with_158(request)
+    # Step 4: Get user's IP address with optimized function
+    user_ip = get_user_ip(request)
     
-    if ipv4_address:
-        # Get or create UserDetail instance
+    # Step 5: Update user IP information
+    try:
         user_detail, created = UserDetail.objects.get_or_create(
-            user_id=user_instance,
-            defaults={'ip_address': ipv4_address}
+            user=user,
+            defaults={'ip_address': user_ip}
         )
         
         # Store previous IP if different from current
-        if user_detail.ip_address and user_detail.ip_address != ipv4_address:
+        if user_detail.ip_address and user_detail.ip_address != user_ip:
             user_detail.previous_ip_address = user_detail.ip_address
         
         # Update current IP and login session time
-        user_detail.ip_address = ipv4_address
-        user_detail.last_login_session = timezone.now().isoformat()
+        user_detail.ip_address = user_ip
+        user_detail.last_login_session = timezone.now()
         user_detail.save()
-
+    except Exception as e:
+        # If updating user detail fails, continue anyway (non-critical)
+        pass
     
+    # Step 6: Try to get wallet information
+    try:
+        from wallet.models import Wallet
+        wallet = Wallet.objects.get(user_id=user.id)
+        wallet_id = wallet.id
+    except Exception:
+        wallet_id = None
+    
+    # Step 7: Return success response with user info
     return {
         "success": True,
-        "user_id":user_id,
-        # "wallet_id":wallet_instance.id,
-        "email":user_instance.email
+        "user_id": user.id,
+        "email": user.email,
+        "wallet_id": wallet_id,
+        "ip_address": user_ip
     }
-
 #CREATE
 #user registration functionality
 @router.post('/signup',

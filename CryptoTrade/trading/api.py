@@ -139,37 +139,7 @@ def cancel_order(request, order_id: int, form: CancelOrderSchema):
         "status": order.status
     }
 
-# @router.get('/orders/{user_id}', response=OrderListResponseSchema)
-# def get_user_orders(request, user_id: int, status: str = None):
-#     """Get all orders for a user, optionally filtered by status."""
-#     user = get_object_or_404(User, id=user_id)
-    
-#     query = Q(user=user)
-#     if status:
-#         query &= Q(status=status)
-    
-#     orders = Order.objects.filter(query).order_by('-created_at')
-    
-#     result = []
-#     for order in orders:
-#         result.append({
-#             "id": order.id,
-#             "user_id": order.user.id,
-#             "wallet_id": order.wallet.id,
-#             "crypto_id": order.cryptocurrency.id,
-#             "order_type": order.order_type,
-#             "price": order.price,
-#             "amount": order.amount,
-#             "status": order.status,
-#             "created_at": order.created_at,
-#             "completed_at": order.completed_at
-#         })
-    
-#     return {
-#         "orders": result,
-#         "count": len(result)
-#     }
-dir
+
 @router.get('/order/user={user_id}', tags=["Trading"])
 def get_user_orders(request, user_id: int):
     # Get user instance
