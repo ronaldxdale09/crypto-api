@@ -139,16 +139,32 @@ def user_login(request, form: LoginUserSchema):
     if not check_password(form.password, user_instance.password):
         return {"error": "Invalid email or password!"}
     
-    wallet_instance = Wallet.objects.get(user_id=user_id)
-    if not wallet_instance:
-        return {"error": "Wallet not found for this user"}
+    # wallet_instance = Wallet.objects.get(user_id=user_id)
+    # if not wallet_instance:
+    #     return {"error": "Wallet not found for this user"}
     
-    
+    # Get user's IP address from request
+    ip_address = request.META.get('REMOTE_ADDR')
+
+    # Get or create UserDetail instance
+    user_detail, created = UserDetail.objects.get_or_create(
+        user_id=user_instance,
+        defaults={'ip_address': ip_address}
+    )
+
+    # Store previous IP if different from current
+    if user_detail.ip_address and user_detail.ip_address != ip_address:
+        user_detail.previous_ip_address = user_detail.ip_address
+
+    # Update current IP and login session time
+    user_detail.ip_address = ip_address
+    user_detail.last_login_session = timezone.now().isoformat()
+    user_detail.save()
     
     return {
         "success": True,
         "user_id":user_id,
-        "wallet_id":wallet_instance.id,
+        # "wallet_id":wallet_instance.id,
         "email":user_instance.email
     }
 

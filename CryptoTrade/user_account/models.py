@@ -31,14 +31,12 @@ class UserDetail(models.Model):
     user_profile = models.TextField(null=True, blank=True) 
     user_id= models.OneToOneField(User,null = True, blank = True, on_delete=models.CASCADE)
     phone_number= models.CharField(max_length=200, null = True, blank = True)
-   
     is_verified=models.BooleanField(default=False)
     tier=models.BooleanField(default=False)
     trading_fee_rate=models.CharField(max_length=200, null = True, blank = True)
     ip_address=models.CharField(max_length=200, null = True, blank = True)
     last_login_session=models.CharField(max_length=200, null = True, blank = True)
     previous_ip_address=models.CharField(max_length=200, null = True, blank = True)
-    
     status=models.CharField(max_length=200, null = True, blank = True)
    
 
