@@ -229,6 +229,7 @@ def buy_crypto(request, user_id: int, crypto_id: int, currentPrice: float, total
         
         # Get user and cryptocurrency
         user = get_object_or_404(User, id=user_id)
+        uid = user.uid
         crypto = get_object_or_404(Cryptocurrency, id=crypto_id)
         
         # Find the user's wallet
@@ -240,7 +241,6 @@ def buy_crypto(request, user_id: int, crypto_id: int, currentPrice: float, total
         # Calculate coin amount based on total USD amount and price
         coin_amount = total_amount / current_price
         API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
-        uid = user.uid
         WALLET_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/user-wallets"
 
         headers = {
@@ -257,8 +257,10 @@ def buy_crypto(request, user_id: int, crypto_id: int, currentPrice: float, total
             return {"success": False, "error": "Failed to fetch wallet data"}
         
         wallet_data = api_response.json()
+        print(wallet_data)
         spot_wallet_balance = Decimal(wallet_data[0]['spot_wallet'])
-        # wallet_id = wallet_data[0]['wallet_id']
+        wallet_id = wallet_data[0]['wallet_id']
+
         # Calculate fee
         fee = total_amount * Decimal('0.001')  # 0.1% fee example
         total_with_fee = total_amount + fee
@@ -281,12 +283,12 @@ def buy_crypto(request, user_id: int, crypto_id: int, currentPrice: float, total
                     user=user,
                     cryptocurrency=crypto,
                     order_type='buy',
+                    execution_type='limit',
                     price=current_price,
                     amount=coin_amount,
-                    status='completed',
+                    status='pending',
                     completed_at=timezone.now(),
                     is_approved=True,
-                    is_declined=False
                 )
                 order.save()
                 
