@@ -168,7 +168,7 @@ def cancel_order(request, order_id: int, form: CancelOrderSchema):
 #         "count": len(result)
 #     }
 dir
-@router.get('/order/user={user_id}')
+@router.get('/order/user={user_id}', tags=["Trading"])
 def get_user_orders(request, user_id: int):
     # Get user instance
         user_instance = User.objects.get(id=user_id)
@@ -201,8 +201,7 @@ def get_user_orders(request, user_id: int):
 
         return {"orders": result, "count": len(result)}
 
-
-@router.get('/trades/{user_id}', response=TradeListResponseSchema)
+@router.get('/trades/{user_id}', response=TradeListResponseSchema, tags=["Trading"])
 def get_user_trades(request, user_id: int):
     """Get trade history for a user."""
     user = get_object_or_404(User, id=user_id)
@@ -217,7 +216,6 @@ def get_user_trades(request, user_id: int):
         result.append({
             "id": trade.id,
             "buyer_id": trade.buyer.id,
-            "seller_id": trade.seller.id,
             "crypto_id": trade.cryptocurrency.id,
             "price": trade.price,
             "amount": trade.amount,
@@ -231,7 +229,7 @@ def get_user_trades(request, user_id: int):
     }
 
 
-@router.post('/trading/buy/{user_id}/{crypto_id}')
+@router.post('/trading/buy/{user_id}/{crypto_id}', tags=["Trading"])
 def buy_crypto(request, user_id: int, crypto_id: int, currentPrice: float, totalAmount: float):
     """
     Buy cryptocurrency directly at market price.
@@ -301,12 +299,12 @@ def buy_crypto(request, user_id: int, crypto_id: int, currentPrice: float, total
                     cursor.execute(
                         """
                         INSERT INTO trading_trade 
-                        (price, amount, fee, executed_at, buyer_id, seller_id, cryptocurrency_id, buy_order_id, sell_order_id) 
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        (price, amount, fee, executed_at, buyer_id, cryptocurrency_id, buy_order_id, sell_order_id) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING id
                         """,
                         [
-                            current_price, coin_amount, fee, timezone.now(), user.id, user.id, 
+                            current_price, coin_amount, fee, timezone.now(), user.id, 
                             crypto.id, order.id, None
                         ]
                     )
@@ -339,7 +337,7 @@ def buy_crypto(request, user_id: int, crypto_id: int, currentPrice: float, total
     except Exception as e:
         return {"success": False, "error": f"An unexpected error occurred: {str(e)}"}
 
-@router.post('/trading/sell/{user_id}/{crypto_id}')
+@router.post('/trading/sell/{user_id}/{crypto_id}', tags=["Trading"])
 def sell_crypto(request, user_id: int, crypto_id: int, currentPrice: float, amount: float):
     """
     Sell cryptocurrency at market price.
@@ -410,12 +408,12 @@ def sell_crypto(request, user_id: int, crypto_id: int, currentPrice: float, amou
                     cursor.execute(
                         """
                         INSERT INTO trading_trade 
-                        (price, amount, fee, executed_at, buyer_id, seller_id, cryptocurrency_id, buy_order_id, sell_order_id) 
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        (price, amount, fee, executed_at, buyer_id, cryptocurrency_id, buy_order_id, sell_order_id) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING id
                         """,
                         [
-                            current_price, coin_amount, fee, timezone.now(), user.id, user.id, 
+                            current_price, coin_amount, fee, timezone.now(), user.id, 
                             crypto.id, None, order.id
                         ]
                     )
@@ -442,5 +440,3 @@ def sell_crypto(request, user_id: int, crypto_id: int, currentPrice: float, amou
         }
     except Exception as e:
         return {"success": False, "error": f"An unexpected error occurred: {str(e)}"}
-    
-    

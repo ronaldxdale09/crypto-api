@@ -27,7 +27,6 @@ class Order(models.Model):
     wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name='orders')
     cryptocurrency = models.ForeignKey(Cryptocurrency, on_delete=models.CASCADE, related_name='orders')
     order_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
-    # execution_type field removed as it doesn't exist in the database
     execution_type = models.CharField(max_length=10, choices=EXECUTION_TYPE, default='limit')
     price = models.DecimalField(max_digits=24, decimal_places=8)
     amount = models.DecimalField(max_digits=24, decimal_places=8)
