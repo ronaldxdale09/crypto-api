@@ -254,20 +254,30 @@ def user_login(request, form: LoginUserSchema):
         # If updating user detail fails, continue anyway (non-critical)
         pass
     
-    # Step 6: Try to get wallet information
-    try:
-        from wallet.models import Wallet
-        wallet = Wallet.objects.get(user_id=user.id)
-        wallet_id = wallet.id
-    except Exception:
-        wallet_id = None
+    # # Step 6: Try to get wallet information
+    # try:
+    #     from wallet.models import Wallet
+    #     wallet = Wallet.objects.get(user_id=user.id)
+    #     wallet_id = wallet.id
+    # except Exception:
+    #     wallet_id = None
+
+    # Step 6: Fetch JWT token from database
+    jwt_token = user.jwt_token
+    if not jwt_token:
+        return {
+            "success": False,
+            "error": "JWT token not found"
+        }
     
     # Step 7: Return success response with user info
     return {
         "success": True,
         "user_id": user.id,
         "email": user.email,
-        "wallet_id": wallet_id,
+        "uid": user.uid,
+        "jwt_token": jwt_token,
+        # "wallet_id": wallet_id,
         "ip_address": user_ip
     }
 #CREATE
