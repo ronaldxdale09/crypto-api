@@ -10,6 +10,11 @@ class Order(models.Model):
         ('buy', 'Buy'),
         ('sell', 'Sell'),
     )
+
+    EXECUTION_TYPE = (
+        ('market', 'Market'),
+        ('limit', 'Limit')
+    )
     
     STATUS_CHOICES = (
         ('pending', 'Pending'),
@@ -23,6 +28,7 @@ class Order(models.Model):
     cryptocurrency = models.ForeignKey(Cryptocurrency, on_delete=models.CASCADE, related_name='orders')
     order_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     # execution_type field removed as it doesn't exist in the database
+    execution_type = models.CharField(max_length=10, choices=EXECUTION_TYPE, default='limit')
     price = models.DecimalField(max_digits=24, decimal_places=8)
     amount = models.DecimalField(max_digits=24, decimal_places=8)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')

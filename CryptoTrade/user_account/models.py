@@ -54,6 +54,13 @@ class KnowYourCustomer(models.Model):
         ('postal_id', 'Postal ID'),
         ('prc_id', 'PRC ID'),
     ]
+
+    VERIFICATION_STATUS = [
+        ('pending', 'Pending'),
+        ('verified', 'Verified'),
+        ('failed', 'Failed'),
+        ('unverified', 'Unverified')
+    ]
     
     user_id= models.OneToOneField(User, on_delete=models.CASCADE)
     kyc_level=models.CharField(max_length=200, null = True, blank = True)

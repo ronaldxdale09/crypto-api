@@ -212,9 +212,7 @@ def signup_user(request, form:SingupUserSchema):
     user.jwt_token = encoded_token
     user.save()
     
-    # Send UID to wallet API
-    import requests
-    
+    # Send UID to wallet API   
     API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
     WALLET_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/user-details"
     
