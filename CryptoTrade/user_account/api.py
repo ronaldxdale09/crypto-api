@@ -20,6 +20,8 @@ from django.conf import settings
 import requests 
 from ninja.security import HttpBearer
 import datetime
+import socket
+from ipaddress import IPv4Address, IPv6Address, ip_address as parse_ip_address
 
 
 router = Router()
@@ -124,6 +126,44 @@ def user_information(request, user_id: int):
 
     return JsonResponse(data)
 
+def get_client_ipv4_starting_with_158(request):
+    """Extract client's IPv4 address that starts with 158"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    
+    candidate_ips = []
+    if x_forwarded_for:
+        # X-Forwarded-For header might contain multiple IPs
+        candidate_ips = [ip.strip() for ip in x_forwarded_for.split(',')]
+    
+    # Add REMOTE_ADDR as a fallback
+    remote_addr = request.META.get('REMOTE_ADDR')
+    if remote_addr:
+        candidate_ips.append(remote_addr)
+    
+    # Check all candidate IPs
+    for ip_str in candidate_ips:
+        try:
+            # Parse the IP address string to verify it's valid
+            ip_obj = parse_ip_address(ip_str)
+            
+            # Check if it's IPv4 and starts with 158
+            if isinstance(ip_obj, IPv4Address) and ip_str.startswith('158.'):
+                return ip_str
+        except ValueError:
+            # Not a valid IP address
+            continue
+    
+    # If we couldn't find an IP starting with 158, return the first valid IPv4
+    for ip_str in candidate_ips:
+        try:
+            ip_obj = parse_ip_address(ip_str)
+            if isinstance(ip_obj, IPv4Address):
+                return ip_str
+        except ValueError:
+            continue
+    
+    return None
+
 
 #Login Function
 @router.post('/login')
@@ -143,23 +183,25 @@ def user_login(request, form: LoginUserSchema):
     # if not wallet_instance:
     #     return {"error": "Wallet not found for this user"}
     
-    # Get user's IP address from request
-    ip_address = request.META.get('REMOTE_ADDR')
+    # Get user's IPv4 address - preferring ones starting with 158
+    ipv4_address = get_client_ipv4_starting_with_158(request)
+    
+    if ipv4_address:
+        # Get or create UserDetail instance
+        user_detail, created = UserDetail.objects.get_or_create(
+            user_id=user_instance,
+            defaults={'ip_address': ipv4_address}
+        )
+        
+        # Store previous IP if different from current
+        if user_detail.ip_address and user_detail.ip_address != ipv4_address:
+            user_detail.previous_ip_address = user_detail.ip_address
+        
+        # Update current IP and login session time
+        user_detail.ip_address = ipv4_address
+        user_detail.last_login_session = timezone.now().isoformat()
+        user_detail.save()
 
-    # Get or create UserDetail instance
-    user_detail, created = UserDetail.objects.get_or_create(
-        user_id=user_instance,
-        defaults={'ip_address': ip_address}
-    )
-
-    # Store previous IP if different from current
-    if user_detail.ip_address and user_detail.ip_address != ip_address:
-        user_detail.previous_ip_address = user_detail.ip_address
-
-    # Update current IP and login session time
-    user_detail.ip_address = ip_address
-    user_detail.last_login_session = timezone.now().isoformat()
-    user_detail.save()
     
     return {
         "success": True,
