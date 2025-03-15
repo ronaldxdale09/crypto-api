@@ -7,22 +7,22 @@ from datetime import datetime
 class OrderSchema(Schema):
     id: int
     user_id: int
-    wallet_id: int
-    coin_id: int
+    cryptocurrency_id: int
     order_type: str  # 'buy' or 'sell'
     execution_type: str  # 'market' or 'limit'
     price: Decimal
     amount: Decimal
-    total_in_usd: Optional[Decimal] = None
-    fee: Optional[Decimal] = None
+    total_in_usdt: Optional[Decimal] = None
+    trade_fee: Optional[Decimal] = None
     status: str
     created_at: datetime
     completed_at: Optional[datetime] = None
+    external_order_id: Optional[int] = None
 
 class TradeSchema(Schema):
     id: int
     buyer_id: int
-    coin_id: int
+    cryptocurrency_id: int
     price: Decimal
     amount: Decimal
     fee: Decimal
@@ -35,46 +35,26 @@ class TradingPairSchema(Schema):
     base_symbol: str
     quote_symbol: str
     is_active: bool
+    external_pair_id: Optional[int] = None
 
 # Request schemas
-class CreateOrderSchema(Schema):
-    user_id: int
-    wallet_id: int
-    coin_id: int
-    order_type: str  # 'buy' or 'sell'
-    execution_type: str  # 'limit' or 'market'
-    price: Decimal
-    amount: Decimal
-
-class DepositSchema(Schema):
-    currentPrice: Decimal
-    totalAmount: Decimal
-
-class WithdrawSchema(Schema):
+class BuySellSchema(Schema):
     currentPrice: Decimal
     amount: Decimal
+    wallet_id: int  # Now required as per API requirements
+    execution_type: str = 'market'  # Default but required in API
 
 class CancelOrderSchema(Schema):
-    order_id: int
     user_id: int  # For security validation
 
 # Response schemas
-class OrderResponseSchema(Schema):
+class BuySellResponseSchema(Schema):
     success: bool
-    order: Optional[OrderSchema] = None
+    external_order_id: Optional[int] = None
+    transaction_details: Optional[dict] = None
+    wallet_details: Optional[dict] = None
+    external_api_response: Optional[dict] = None
     error: Optional[str] = None
-
-class OrderListResponseSchema(Schema):
-    orders: List[OrderSchema]
-    count: int
-
-class TradeListResponseSchema(Schema):
-    trades: List[TradeSchema]
-    count: int
-
-class TradingPairListResponseSchema(Schema):
-    pairs: List[TradingPairSchema]
-    count: int
 
 class MarketDataSchema(Schema):
     pair_id: int
