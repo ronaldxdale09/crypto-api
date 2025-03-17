@@ -605,22 +605,36 @@ def get_network_fees(request, network_id: int, crypto_id: int):
 COIN_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/coins"
 USER_WALLET_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/user-wallets/{uid}"
 
-# Your API Key (Store securely in environment variables)
-API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"  # Replace this with a secure storage method
+# API Key (Ensure secure storage)
+API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"  # Store securely
 
-@router.get("/fetch-data", tags=["Wallet Data"])
-def fetch_crypto_data(request, uid: str):
+@router.get("/fetch-user-crypto", tags=["Wallet Data"])
+def fetch_user_crypto(request, uid: str):
     try:
         # Fetch coins data
         coin_response = requests.get(f"{COIN_API_URL}?apikey={API_KEY}")
-        coin_data = coin_response.json() if coin_response.status_code == 200 else {"error": "Failed to fetch coins"}
+        coins = coin_response.json() if coin_response.status_code == 200 else []
 
         # Fetch user wallet data
         wallet_url = USER_WALLET_API_URL.format(uid=uid)
         wallet_response = requests.get(wallet_url, params={"apikey": API_KEY})
-        wallet_data = wallet_response.json() if wallet_response.status_code == 200 else {"error": "Failed to fetch wallet"}
+        wallets = wallet_response.json() if wallet_response.status_code == 200 else []
 
-        return {"coins": coin_data, "wallets": wallet_data}
+        # Create a dictionary for quick lookup of wallet balances by crypto symbol
+        wallet_dict = {wallet["crypto_symbol"]: wallet["spot_wallet"] for wallet in wallets}
+
+        # Match coins with user wallet spot balances
+        matched_data = [
+            {
+                "symbol": coin["symbol"],
+                "name": coin["name"],
+                "price": coin["price"],
+                "spot_wallet_balance": wallet_dict.get(coin["symbol"], "0.00000")  # Default to 0 if not found
+            }
+            for coin in coins
+        ]
+
+        return {"user_crypto_balances": matched_data}
 
     except requests.RequestException as e:
         return {"error": str(e)}
