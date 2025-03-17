@@ -84,45 +84,30 @@ def get_user(request):
     users = User.objects.all()
     return [UserSchema(name=user.name, email=user.email, password=user.password) for user in users]
 
-@router.get('getUserInformation/')
+@router.get('getUserInformation/', tags=["User Account"],)
 def user_information(request, user_id: int):
     user = get_object_or_404(User, id=user_id)
-    user_detail = UserDetail.objects.filter(user_id=user_id).first()
-    wallet = Wallet.objects.filter(user_id=user).first()
-    wallet_balances = UserAsset.objects.filter(wallet=wallet).select_related('cryptocurrency') if wallet else []
+    user_detail = UserDetail.objects.filter(user_id=user_id)
 
     # Format the data for JSON response
     data = {
         "user": {
             "name": user.name,
-            "email": user.email
+            "email": user.email,
+            "uid": user.uid,
+            "secret_phrase": user.secret_phrase,
+            "referral_code": user.referral_code
         },
         "user_detail": {
             "phone_number": user_detail.phone_number if user_detail else None,
             "is_verified": user_detail.is_verified if user_detail else None,
-            "secret_phrase": user_detail.secret_phrase if user_detail else None,
             "tier": user_detail.tier if user_detail else None,
             "trading_fee": user_detail.trading_fee_rate if user_detail else None,
             "ip_address": user_detail.ip_address if user_detail else None,
-            "last_login_sesson": user_detail.last_login_session if user_detail else None,
+            "last_login_session": user_detail.last_login_session if user_detail else None,
             "previous_ip_address": user_detail.previous_ip_address if user_detail else None,
-            "referral_code": user_detail.referral_code if user_detail else None,
-            "status": user_detail.status if user_detail else None,
+            "status": user_detail.status if user_detail else None
         },
-        "wallet": {
-            "wallet_id":wallet.id,
-            "wallet_address": wallet.wallet_address if wallet else None,
-            "available_balance": wallet.available_balance if wallet else None,
-        },
-        "wallet_balances": [
-            {
-                "crypto_id": balance.cryptocurrency.id if balance.cryptocurrency else None,
-                "crypto_symbol": balance.cryptocurrency.symbol if balance.cryptocurrency else "N/A",
-                "network": balance.network.name if balance.network else "Unknown",
-                "balance": float(balance.balance) if balance.balance != 0 else 0.0    
-            }
-            for balance in wallet_balances
-        ]
     }
 
     return JsonResponse(data)

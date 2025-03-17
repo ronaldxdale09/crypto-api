@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from django.http import JsonResponse
 import uuid
+import requests
 
 router = Router()
 
@@ -598,3 +599,28 @@ def get_network_fees(request, network_id: int, crypto_id: int):
         "fee_options": fee_options,
         "updated_at": "2025-03-03T12:00:00Z"  # Mock timestamp
     }
+
+
+#Get user coin functionality
+COIN_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/coins"
+USER_WALLET_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/user-wallets/{uid}"
+
+# Your API Key (Store securely in environment variables)
+API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"  # Replace this with a secure storage method
+
+@router.get("/fetch-data", tags=["Wallet Data"])
+def fetch_crypto_data(request, uid: str):
+    try:
+        # Fetch coins data
+        coin_response = requests.get(f"{COIN_API_URL}?apikey={API_KEY}")
+        coin_data = coin_response.json() if coin_response.status_code == 200 else {"error": "Failed to fetch coins"}
+
+        # Fetch user wallet data
+        wallet_url = USER_WALLET_API_URL.format(uid=uid)
+        wallet_response = requests.get(wallet_url, params={"apikey": API_KEY})
+        wallet_data = wallet_response.json() if wallet_response.status_code == 200 else {"error": "Failed to fetch wallet"}
+
+        return {"coins": coin_data, "wallets": wallet_data}
+
+    except requests.RequestException as e:
+        return {"error": str(e)}
