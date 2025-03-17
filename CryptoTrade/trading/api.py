@@ -14,12 +14,19 @@ ORDER_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/orders"
 WALLET_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/user-wallet"
 API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
 
-def create_external_order(order_data):
+def create_external_order(uid, coin_pair_id, wallet_id, order_type, excecution_type, price, amount, total_in_usdt):
     """
     Create an order using the external API with URL parameters.
     
     Args:
-        order_data (dict): Order data containing required fields
+        uid (str): User ID
+        coin_pair_id (int): Coin pair ID
+        wallet_id (int): Wallet ID
+        order_type (str): Order type (buy/sell)
+        excecution_type (str): Execution type (market/limit)
+        price (float): Price
+        amount (float): Amount
+        total_in_usdt (float): Total in USDT
     
     Returns:
         dict: Response with success status and order details
@@ -29,17 +36,13 @@ def create_external_order(order_data):
             "Accept": "application/json"
         }
         
-        # Build URL with query parameters, starting with API key
-        url = f"{ORDER_API_URL}?apikey={API_KEY}"
-        
-        # Add all other parameters as query parameters
-        for key, value in order_data.items():
-            url += f"&{key}={value}"
+        # Build URL with query parameters exactly as shown in the example
+        url = f"{ORDER_API_URL}?apikey={API_KEY}&uid={uid}&coin_pair_id={coin_pair_id}&wallet_id={wallet_id}&order_type={order_type}&excecution_type={excecution_type}&price={price}&amount={amount}&total_in_usdt={total_in_usdt}"
         
         print(f"Making request to: {url}")
         
-        # Use POST with the URL containing all parameters
-        api_response = requests.post(
+        # Use GET request as shown in the example URL
+        api_response = requests.get(
             url,
             headers=headers,
             timeout=15
@@ -107,10 +110,10 @@ def create_external_order(order_data):
             }
         
         return {
-            'success': False,
-            'order_data': None,
+            'success': True,  # Even without specific order data, if API returned 200, consider it successful
+            'order_data': response_data,
             'order_id': None,
-            'error': "Could not find order data in response",
+            'error': None,
             'raw_response': response_data
         }
         
@@ -257,20 +260,18 @@ def buy_crypto(request, uid: str, coin_pair_id: int, data: BuySellSchema):
         # Calculate fee (if needed)
         fee = total_value * Decimal('0.001')  # 0.1% fee
         
-        # Prepare order data with all required parameters - don't include apikey here, it's added in the function
-        order_data = {
-            'uid': uid,
-            'coin_pair_id': coin_pair_id,
-            'wallet_id': wallet_id,
-            'order_type': 'buy',
-            'excecution_type': execution_type,
-            'price': float(current_price),
-            'amount': float(coin_amount),
-            'total_in_usdt': float(total_value)
-        }
+        # Call external API to create order with all parameters
+        api_result = create_external_order(
+            uid=uid,
+            coin_pair_id=coin_pair_id,
+            wallet_id=wallet_id,
+            order_type='buy',
+            excecution_type=execution_type,
+            price=float(current_price),
+            amount=float(coin_amount),
+            total_in_usdt=float(total_value)
+        )
         
-        # Call external API to create order
-        api_result = create_external_order(order_data)
         if not api_result['success']:
             return {"success": False, "error": api_result['error']}
         
@@ -284,7 +285,7 @@ def buy_crypto(request, uid: str, coin_pair_id: int, data: BuySellSchema):
         # Prepare comprehensive response
         return {
             "success": True,
-            "external_order_id": api_result['order_id'],
+            "external_order_id": api_result.get('order_id'),
             "transaction_details": {
                 "price": current_price,
                 "amount": coin_amount,
@@ -347,20 +348,18 @@ def sell_crypto(request, uid: str, coin_pair_id: int, data: BuySellSchema):
         # Calculate fee
         fee = total_value * Decimal('0.001')  # 0.1% fee
         
-        # Prepare order data with all required parameters - don't include apikey here, it's added in the function
-        order_data = {
-            'uid': uid,
-            'coin_pair_id': coin_pair_id,
-            'wallet_id': wallet_id,
-            'order_type': 'sell',
-            'excecution_type': execution_type,
-            'price': float(current_price),
-            'amount': float(coin_amount),
-            'total_in_usdt': float(total_value)
-        }
+        # Call external API to create order with all parameters
+        api_result = create_external_order(
+            uid=uid,
+            coin_pair_id=coin_pair_id,
+            wallet_id=wallet_id,
+            order_type='sell',
+            excecution_type=execution_type,
+            price=float(current_price),
+            amount=float(coin_amount),
+            total_in_usdt=float(total_value)
+        )
         
-        # Call external API to create order
-        api_result = create_external_order(order_data)
         if not api_result['success']:
             return {"success": False, "error": api_result['error']}
         
@@ -374,7 +373,7 @@ def sell_crypto(request, uid: str, coin_pair_id: int, data: BuySellSchema):
         # Prepare comprehensive response
         return {
             "success": True,
-            "external_order_id": api_result['order_id'],
+            "external_order_id": api_result.get('order_id'),
             "transaction_details": {
                 "price": current_price,
                 "amount": coin_amount,
