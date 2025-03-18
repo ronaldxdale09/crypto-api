@@ -621,8 +621,8 @@ def fetch_user_crypto(request, uid: str):
         wallets = wallet_response.json() if wallet_response.status_code == 200 else []
 
         # Create a dictionary for quick lookup of wallet balances by crypto symbol
-        wallet_dict = {wallet["crypto_symbol"]: wallet["spot_wallet"] for wallet in wallets}
-
+        wallet_dict = {wallet["crypto_symbol"]: {"spot_wallet": wallet["spot_wallet"], "wallet_id": wallet["wallet_id"]} for wallet in wallets}
+        
         # Match coins with user wallet spot balances
         matched_data = [
             {
@@ -631,6 +631,7 @@ def fetch_user_crypto(request, uid: str):
                 "logo_path": coin.get("logo_path", None),
                 "price": coin["price"],
                 "spot_wallet_balance": wallet_dict.get(coin["symbol"], "0.00000")  # Default to 0 if not found
+                
             }
             for coin in coins
         ]
