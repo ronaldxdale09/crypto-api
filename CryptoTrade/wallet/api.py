@@ -608,7 +608,7 @@ USER_WALLET_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/u
 # API Key (Ensure secure storage)
 API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"  # Store securely
 
-@router.get("/fetch-user-crypto", tags=["Wallet Data"])
+@router.get("/fetch-user-crypto/{uid}", tags=["Wallet Data"])
 def fetch_user_crypto(request, uid: str):
     try:
         # Fetch coins data
@@ -628,13 +628,14 @@ def fetch_user_crypto(request, uid: str):
             {
                 "symbol": coin["symbol"],
                 "name": coin["name"],
+                "logo_path": coin.get("logo_path", None),
                 "price": coin["price"],
                 "spot_wallet_balance": wallet_dict.get(coin["symbol"], "0.00000")  # Default to 0 if not found
             }
             for coin in coins
         ]
 
-        return {"user_crypto_balances": matched_data}
+        return matched_data  # Directly returning the list
 
     except requests.RequestException as e:
         return {"error": str(e)}
