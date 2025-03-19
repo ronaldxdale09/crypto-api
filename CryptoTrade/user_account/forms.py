@@ -45,16 +45,17 @@ class LoginUserSchema(BaseModel):
 
 class UpdateUserSchema(Schema):
     name:str
-    email:str
+    # email:str
     phone_number: str 
-    is_verified: bool
-    tier: bool 
-    trading_fee_rate: str 
-    last_login_session: str 
-    previous_ip_address: str 
-    status: str
-    referral_code: str
-    secret_phrase: str 
+    user_profile: Optional[str]
+    # is_verified: bool
+    # tier: bool 
+    # trading_fee_rate: str 
+    # last_login_session: str 
+    # previous_ip_address: str 
+    # status: str
+    # referral_code: str
+    # secret_phrase: str 
 
 class CreateUserDetailSchema(Schema):
     phone_number: str 

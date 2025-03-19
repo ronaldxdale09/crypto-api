@@ -84,10 +84,10 @@ def get_user(request):
     users = User.objects.all()
     return [UserSchema(name=user.name, email=user.email, password=user.password) for user in users]
 
-@router.get('getUserInformation/', tags=["User Account"],)
+@router.get('getUserInformation/', tags=["User Account"])
 def user_information(request, user_id: int):
     user = get_object_or_404(User, id=user_id)
-    user_detail = UserDetail.objects.filter(user_id=user_id)
+    user_detail = UserDetail.objects.filter(user_id=user_id).first()
 
     # Format the data for JSON response
     data = {
@@ -96,9 +96,11 @@ def user_information(request, user_id: int):
             "email": user.email,
             "uid": user.uid,
             "secret_phrase": user.secret_phrase,
-            "referral_code": user.referral_code
+            "referral_code": user.referral_code,
+            "role": user.role_id.first().role if user.role_id.exists() else None
         },
         "user_detail": {
+            "user_profile": user_detail.user_profile if user_detail else None,
             "phone_number": user_detail.phone_number if user_detail else None,
             "is_verified": user_detail.is_verified if user_detail else None,
             "tier": user_detail.tier if user_detail else None,
@@ -111,6 +113,7 @@ def user_information(request, user_id: int):
     }
 
     return JsonResponse(data)
+
 def get_user_ip(request):
     """
     Get the most reliable user IP address in a single function.
@@ -362,27 +365,26 @@ def signup_user(request, form:SingupUserSchema):
 
 
 #To create user details/addtional signup info needed
-@router.post('/user_details/{userId}')
-def user_details(request, userId: int, form: CreateUserDetailSchema):
-    user_instance = get_object_or_404(User, id=userId)
+# @router.post('/user_details/{userId}')
+# def user_details(request, userId: int, form: CreateUserDetailSchema):
+#     user_instance = get_object_or_404(User, id=userId)
 
-    user_detail=UserDetail.objects.create(
-        user_id = user_instance,
-        phone_number=form.phone_number,
-        tier=form.tier,
-        trading_fee_rate = form.trading_fee_rate,
-        ip_address = form.ip_address,
-    )
-    user_detail.save()
-    return{
-        "success": True,
-        "user_detail_id": user_detail.id,
-        "referral_code": user_detail.referral_code,
-        "secret_phrase": user_detail.secret_phrase,
-    }
+#     user_detail=UserDetail.objects.create(
+#         user_id = user_instance,
+#         phone_number=form.phone_number,
+#         tier=form.tier,
+#         trading_fee_rate = form.trading_fee_rate,
+#         ip_address = form.ip_address,
+#     )
+#     user_detail.save()
+#     return{
+#         "success": True,
+#         "user_detail_id": user_detail.id,
+#         "referral_code": user_detail.referral_code,
+#         "secret_phrase": user_detail.secret_phrase,
+#     }
 
 #UPDATE
-
 @router.post('/edit_profile/user={userId}')
 def edit_profile(request, userId: int):
     from django.conf import settings
