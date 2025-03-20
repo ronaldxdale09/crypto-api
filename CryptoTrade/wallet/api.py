@@ -613,37 +613,32 @@ def fetch_user_crypto(request, uid: str):
     try:
         # Fetch coins data
         coin_response = requests.get(f"{COIN_API_URL}?apikey={API_KEY}")
-        coin_response.raise_for_status()
-        coins = coin_response.json()
+        coins = coin_response.json() if coin_response.status_code == 200 else []
 
         # Fetch user wallet data
         wallet_url = USER_WALLET_API_URL.format(uid=uid)
         wallet_response = requests.get(wallet_url, params={"apikey": API_KEY})
+        # wallets = wallet_response.json() if wallet_response.status_code == 200 else []
         wallet_response.raise_for_status()
         wallets = wallet_response.json().get("0", [])
 
         # Create a dictionary for quick lookup of wallet balances by crypto symbol
-        wallet_dict = {
-            wallet["crypto_symbol"]: {
-                "spot_wallet": wallet["spot_wallet"],
-                "wallet_id": wallet["wallet_id"],
-            }
-            for wallet in wallets
-        }
-
+        wallet_dict = {wallet["crypto_symbol"]: {"spot_wallet": wallet["spot_wallet"], "wallet_id": wallet["wallet_id"]} for wallet in wallets}
+        
         # Match coins with user wallet spot balances
         matched_data = [
             {
                 "symbol": coin["symbol"],
                 "name": coin["name"],
-                "logo_path": coin.get("logo_path"),
+                "logo_path": coin.get("logo_path", None),
                 "price": coin["price"],
-                "spot_wallet_balance": wallet_dict.get(coin["symbol"], {}).get("spot_wallet", "0.00000")
+                "spot_wallet_balance": wallet_dict.get(coin["symbol"], "0.00000")  # Default to 0 if not found
+                
             }
             for coin in coins
         ]
 
-        return matched_data
+        return matched_data  # Directly returning the list
 
     except requests.RequestException as e:
         return {"error": str(e)}
