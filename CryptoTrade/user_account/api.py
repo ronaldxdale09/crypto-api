@@ -643,6 +643,10 @@ def upload_kyc(request, user_id: int):
             "message": f"Error creating KYC record: {str(e)}"
         }
     
+    user_detail_instance = UserDetail.objects.get(user_id=user_id)
+    user_detail_instance.is_verified = True
+    user_detail_instance.save()
+    
     return {
         "success": True,
         "message": "KYC documents uploaded successfully",
@@ -651,4 +655,5 @@ def upload_kyc(request, user_id: int):
         "selfie_url": selfie_url,
         "front_id_url": front_id_url,
         "back_id_url": back_id_url,
+        "is_verified": user_detail_instance.is_verified,
     }
