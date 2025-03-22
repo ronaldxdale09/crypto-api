@@ -421,7 +421,7 @@ def edit_profile(request, userId: int):
             # Generate a unique filename (without folder path)
             filename = f"user_profile_{userId}_{uuid.uuid4().hex[:8]}.{user_profile.name.split('.')[-1]}"
             
-            bucket_name = "crypto_app"
+            bucket_name = "image"
             supabase_url = settings.SUPABASE_URL
             storage_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{filename}"
             
