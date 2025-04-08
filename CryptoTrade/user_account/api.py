@@ -95,6 +95,7 @@ def user_information(request, user_id: int):
             "name": user.name,
             "email": user.email,
             "uid": user.uid,
+            "jwt_token": user.jwt_token,
             "secret_phrase": user.secret_phrase,
             "referral_code": user.referral_code,
             "role": user.role_id.first().role if user.role_id.exists() else None
@@ -657,3 +658,165 @@ def upload_kyc(request, user_id: int):
         "back_id_url": back_id_url,
         "is_verified": user_detail_instance.is_verified,
     }
+
+# class KYCUploadSchema(BaseModel):
+#     document_type: str
+
+# @router.post('/upload-kyc/user={user_id}', 
+#              tags=["User Account"],
+#              summary="Upload KYC documents")
+# def upload_kyc(
+#     request, 
+#     user_id: int,
+#     document_type: str = Form(..., description="Type of document being uploaded"),
+#     captured_selfie: UploadedFile = File(..., description="User's selfie for verification"),
+#     front_captured_image: UploadedFile = File(..., description="Front side of the ID document"),
+#     back_captured_image: UploadedFile = File(..., description="Back side of the ID document")
+# ):
+#     """
+#     Upload KYC (Know Your Customer) verification documents
+    
+#     This endpoint allows users to submit their identification documents for verification.
+#     """
+#     from django.conf import settings
+    
+#     # Check if user exists
+#     user = get_object_or_404(User, id=user_id)
+    
+#     # Prevent duplicate KYC records
+#     if KnowYourCustomer.objects.filter(user_id=user).exists():
+#         return {
+#             "success": False,
+#             "message": "KYC record already exists for this user"
+#         }
+    
+#     # Ensure document type is valid
+#     valid_document_types = [doc[0] for doc in KnowYourCustomer.DOCUMENT_TYPES]
+#     if not document_type or document_type not in valid_document_types:
+#         return {
+#             "success": False,
+#             "message": f"Invalid document type: {document_type}. Valid types are: {', '.join(valid_document_types)}"
+#         }
+    
+#     # Upload selfie to Supabase
+#     try:
+#         # Read file data
+#         selfie_content = captured_selfie.read()
+#         selfie_type = captured_selfie.content_type
+        
+#         # Generate a unique filename
+#         selfie_filename = f"selfie_{user_id}_{uuid.uuid4().hex[:8]}.{captured_selfie.name.split('.')[-1]}"
+        
+#         bucket_name = "crypto_app"
+#         folder_name = "kyc"
+#         supabase_url = settings.SUPABASE_URL
+#         selfie_storage_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{folder_name}/{selfie_filename}"
+        
+#         # Set up headers
+#         headers = {
+#             "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+#             "Content-Type": selfie_type,
+#         }
+        
+#         # Upload the selfie
+#         selfie_response = requests.post(
+#             selfie_storage_url,
+#             headers=headers,
+#             data=selfie_content
+#         )
+        
+#         if selfie_response.status_code not in [200, 201]:
+#             return {
+#                 "success": False,
+#                 "message": f"Failed to upload selfie: {selfie_response.status_code} - {selfie_response.text}"
+#             }
+            
+#         selfie_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{folder_name}/{selfie_filename}"
+        
+#         # Upload front ID image
+#         front_content = front_captured_image.read()
+#         front_type = front_captured_image.content_type
+#         front_filename = f"front_id_{user_id}_{uuid.uuid4().hex[:8]}.{front_captured_image.name.split('.')[-1]}"
+#         front_storage_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{folder_name}/{front_filename}"
+        
+#         front_response = requests.post(
+#             front_storage_url,
+#             headers={
+#                 "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+#                 "Content-Type": front_type,
+#             },
+#             data=front_content
+#         )
+        
+#         if front_response.status_code not in [200, 201]:
+#             return {
+#                 "success": False,
+#                 "message": f"Failed to upload front ID: {front_response.status_code} - {front_response.text}"
+#             }
+            
+#         front_id_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{folder_name}/{front_filename}"
+        
+#         # Upload back ID image
+#         back_content = back_captured_image.read()
+#         back_type = back_captured_image.content_type
+#         back_filename = f"back_id_{user_id}_{uuid.uuid4().hex[:8]}.{back_captured_image.name.split('.')[-1]}"
+#         back_storage_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{folder_name}/{back_filename}"
+        
+#         back_response = requests.post(
+#             back_storage_url,
+#             headers={
+#                 "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+#                 "Content-Type": back_type,
+#             },
+#             data=back_content
+#         )
+        
+#         if back_response.status_code not in [200, 201]:
+#             return {
+#                 "success": False,
+#                 "message": f"Failed to upload back ID: {back_response.status_code} - {back_response.text}"
+#             }
+            
+#         back_id_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{folder_name}/{back_filename}"
+        
+#     except Exception as e:
+#         import traceback
+#         print(f"Error uploading KYC files: {str(e)}")
+#         print(traceback.format_exc())
+#         return {
+#             "success": False,
+#             "message": f"Error uploading KYC files: {str(e)}"
+#         }
+    
+#     # Create KYC record
+#     try:
+#         kyc = KnowYourCustomer.objects.create(
+#             user_id=user,
+#             document_type=document_type,
+#             captured_selfie=selfie_url,
+#             front_captured_image=front_id_url,
+#             back_captured_image=back_id_url,
+#         )
+#     except Exception as e:
+#         import traceback
+#         print(f"Error creating KYC record: {str(e)}")
+#         print(traceback.format_exc())
+#         return {
+#             "success": False,
+#             "message": f"Error creating KYC record: {str(e)}"
+#         }
+    
+#     user_detail_instance = UserDetail.objects.get(user_id=user_id)
+#     user_detail_instance.is_verified = True
+#     user_detail_instance.save()
+    
+#     return {
+#         "success": True,
+#         "message": "KYC documents uploaded successfully",
+#         "user_id": user.id,
+#         "document_type": kyc.document_type,
+#         "selfie_url": selfie_url,
+#         "front_id_url": front_id_url,
+#         "back_id_url": back_id_url,
+#         "is_verified": user_detail_instance.is_verified,
+#     }
