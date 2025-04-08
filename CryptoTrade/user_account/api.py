@@ -424,9 +424,11 @@ def edit_profile(request, userId: int):
             # Generate a unique filename (without folder path)
             filename = f"user_profile_{userId}_{uuid.uuid4().hex[:8]}.{user_profile.name.split('.')[-1]}"
             
-            bucket_name = "crypto_app"
+            # Use the "image" bucket and a "profiles" folder
+            bucket_name = "image"
+            folder_name = "profiles"
             supabase_url = settings.SUPABASE_URL
-            storage_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{filename}"
+            storage_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{folder_name}/{filename}"
             
             print(f"Upload URL: {storage_url}")
             
@@ -449,7 +451,7 @@ def edit_profile(request, userId: int):
             
             if upload_response.status_code in [200, 201]:
                 # Calculate the public URL
-                public_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{filename}"
+                public_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{folder_name}/{filename}"
                 user_detail.user_profile = public_url
                 print(f"File uploaded successfully: {public_url}")
             else:
@@ -545,7 +547,8 @@ def upload_kyc(request, user_id: int):
         # Generate a unique filename
         selfie_filename = f"selfie_{user_id}_{uuid.uuid4().hex[:8]}.{captured_selfie.name.split('.')[-1]}"
         
-        bucket_name = "crypto_app"
+        # Changed bucket name from crypto_app to image
+        bucket_name = "image"
         folder_name = "kyc"
         supabase_url = settings.SUPABASE_URL
         selfie_storage_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{folder_name}/{selfie_filename}"
