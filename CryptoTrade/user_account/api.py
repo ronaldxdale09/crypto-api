@@ -28,7 +28,7 @@ import socket
 router = Router()
 
 API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
-WALLET_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/user-wallets"
+WALLET_API_URL = "https://apiv2.bhtokens.com/api/v1/user-wallets"
 
 
 
@@ -331,7 +331,7 @@ def signup_user(request, form:SingupUserSchema):
     
     # Send UID to wallet API   
     API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
-    WALLET_API_URL = "https://wallet-app-api-main-m41zlt.laravel.cloud/api/v1/user-details"
+    WALLET_API_URL = "https://apiv2.bhtokens.com/api/v1/user-details"
     
     headers = {
         "Content-Type": "application/json",
