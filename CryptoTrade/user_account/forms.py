@@ -70,4 +70,12 @@ class CreateUserDetailSchema(Schema):
     status: str
     role:str
 
-    
+class OTPVerificationSchema(Schema):
+    email: str
+    otp: str
+
+class OTPRequestSchema(Schema):
+    email: str
+
+class MessageResponseSchema(Schema):
+    message: str

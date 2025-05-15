@@ -23,7 +23,7 @@ import datetime
 from functools import lru_cache
 import ipaddress
 import socket
-
+from django.core.mail import send_mail
 
 router = Router()
 
@@ -271,19 +271,18 @@ def user_login(request, form: LoginUserSchema):
     }
 #CREATE
 #user registration functionality
-@router.post('/signup',
-             tags=["User Account"],)
-def signup_user(request, form:SingupUserSchema):
+@router.post('/signup', tags=["User Account"])
+def signup_user(request, form: SingupUserSchema):
     try:
         validate_email(form.email)
     except ValidationError:
         return {"error": "Invalid email format"}
     
     if User.objects.filter(email=form.email).exists():
-        return {"error": "Email already use"}
+        return {"error": "Email already in use"}
 
     if form.password != form.confirm_password:
-        return {"error": "Password do not match!"}
+        return {"error": "Passwords do not match!"}
     
     referral_code = RandomReferralCodeGenerator()
     secret_phrase = SecretPhraseGenerator()
@@ -292,9 +291,10 @@ def signup_user(request, form:SingupUserSchema):
     user = User.objects.create(
         email=form.email,
         password=make_password(form.password),
-        referral_code = referral_code,
-        secret_phrase = secret_phrase,
-        uid = uid
+        referral_code=referral_code,
+        secret_phrase=secret_phrase,
+        uid=uid,
+        is_active=False  # Set user as inactive until email is verified
     )
     print("Received data:", form.email, form.password, form.confirm_password)
 
@@ -306,7 +306,7 @@ def signup_user(request, form:SingupUserSchema):
     wallet = Wallet.objects.create(
         available_balance=0,
         wallet_address=None,
-        is_active=True
+        is_active=False  # Keep wallet inactive until email verification
     )
     wallet.user_id.add(user)
 
@@ -317,52 +317,110 @@ def signup_user(request, form:SingupUserSchema):
         for crypto in cryptocurrencies
     ])
 
-    # Generate JWT token
-    payload = {
+    # Generate OTP
+    otp = generate_otp(user)
+    
+    # Send OTP via email
+    send_otp_email(form.email, otp)
+    
+    return {
+        "message": "Account created successfully. Please check your email for OTP verification.",
         "user_id": user.id,
         "email": user.email,
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+        # Don't send JWT token until email is verified
     }
+# @router.post('/signup',
+#              tags=["User Account"],)
+# def signup_user(request, form:SingupUserSchema):
+#     try:
+#         validate_email(form.email)
+#     except ValidationError:
+#         return {"error": "Invalid email format"}
+    
+#     if User.objects.filter(email=form.email).exists():
+#         return {"error": "Email already use"}
 
-    JWT_SIGNING_KEY = getattr(settings, "JWT_SIGNING_KEY", None)
-    encoded_token = jwt.encode(payload, JWT_SIGNING_KEY, algorithm="HS256")
-    user.jwt_token = encoded_token
-    user.save()
+#     if form.password != form.confirm_password:
+#         return {"error": "Password do not match!"}
     
-    # Send UID to wallet API   
-    API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
-    WALLET_API_URL = "https://apiv2.bhtokens.com/api/v1/user-details"
+#     referral_code = RandomReferralCodeGenerator()
+#     secret_phrase = SecretPhraseGenerator()
+#     uid = generate_uid()
+   
+#     user = User.objects.create(
+#         email=form.email,
+#         password=make_password(form.password),
+#         referral_code = referral_code,
+#         secret_phrase = secret_phrase,
+#         uid = uid
+#     )
+#     print("Received data:", form.email, form.password, form.confirm_password)
+
+#     # Assign 'Client' role to the user
+#     client_role = Role.objects.get(role='client')
+#     user.role_id.add(client_role)
+
+#     # Create wallet linked to user
+#     wallet = Wallet.objects.create(
+#         available_balance=0,
+#         wallet_address=None,
+#         is_active=True
+#     )
+#     wallet.user_id.add(user)
+
+#     # Initialize UserAsset for each cryptocurrency
+#     cryptocurrencies = Cryptocurrency.objects.all()
+#     UserAsset.objects.bulk_create([
+#         UserAsset(wallet=wallet, cryptocurrency=crypto, balance=0.0)
+#         for crypto in cryptocurrencies
+#     ])
+
+#     # Generate JWT token
+#     payload = {
+#         "user_id": user.id,
+#         "email": user.email,
+#         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+#     }
+
+#     JWT_SIGNING_KEY = getattr(settings, "JWT_SIGNING_KEY", None)
+#     encoded_token = jwt.encode(payload, JWT_SIGNING_KEY, algorithm="HS256")
+#     user.jwt_token = encoded_token
+#     user.save()
     
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
+#     # Send UID to wallet API   
+#     API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
+#     WALLET_API_URL = "https://apiv2.bhtokens.com/api/v1/user-details"
     
-    # You can either send as query parameter
-    api_response = requests.post(
-        f"{WALLET_API_URL}?apikey={API_KEY}",
-        json={"uid": uid},
-        headers=headers
-    )
+#     headers = {
+#         "Content-Type": "application/json",
+#         "Accept": "application/json"
+#     }
+    
+#     # You can either send as query parameter
+#     api_response = requests.post(
+#         f"{WALLET_API_URL}?apikey={API_KEY}",
+#         json={"uid": uid},
+#         headers=headers
+#     )
 
     
-    # Check if API call was successful
-    if api_response.status_code != 200:
-        # If API call failed, you may want to delete the created user
-        # or handle the error differently
-        User.objects.filter(id=user.id).delete()
-        return {"error": f"Failed to register with wallet service: {api_response.text}"}
+#     # Check if API call was successful
+#     if api_response.status_code != 200:
+#         # If API call failed, you may want to delete the created user
+#         # or handle the error differently
+#         User.objects.filter(id=user.id).delete()
+#         return {"error": f"Failed to register with wallet service: {api_response.text}"}
         
-    return {
-        "success": "The account was successfully signed up!",
-        "user_id": user.id,
-        'jwt_token': encoded_token,
-        "role": "Client",
-        "referral_code": referral_code,
-        "secret_phrase": secret_phrase,
-        "uid": uid,
-        "cryptocurrencies": [crypto.symbol for crypto in cryptocurrencies],
-    }
+#     return {
+#         "success": "The account was successfully signed up!",
+#         "user_id": user.id,
+#         'jwt_token': encoded_token,
+#         "role": "Client",
+#         "referral_code": referral_code,
+#         "secret_phrase": secret_phrase,
+#         "uid": uid,
+#         "cryptocurrencies": [crypto.symbol for crypto in cryptocurrencies],
+#     }
 
 
 #To create user details/addtional signup info needed
@@ -823,3 +881,135 @@ def upload_kyc(request, user_id: int):
 #         "back_id_url": back_id_url,
 #         "is_verified": user_detail_instance.is_verified,
 #     }
+
+
+
+
+#Email verification, sending otp 'in email
+def generate_otp(user):
+    # Generate a 6-digit OTP
+    totp = pyotp.TOTP(pyotp.random_base32())
+    otp = totp.now()
+    
+    # Set expiration time (10 minutes from now)
+    expires_at = datetime.datetime.now() + datetime.timedelta(minutes=10)
+    
+    # Save OTP to database
+    otp_obj = OTPVerification.objects.create(
+        user=user,
+        otp=otp,
+        expires_at=expires_at
+    )
+    
+    return otp
+
+def send_otp_email(user_email, otp):
+    subject = 'Email Verification OTP'
+    message = f'Your OTP for email verification is: {otp}. This OTP is valid for 10 minutes.'
+    from_email = settings.EMAIL_HOST_USER
+    recipient_list = [user_email]
+    
+    send_mail(subject, message, from_email, recipient_list)
+
+
+@router.post('/verify-otp', tags=["User Account"])
+def verify_otp(request, data: OTPVerificationSchema):
+    try:
+        user = User.objects.get(email=data.email)
+    except User.DoesNotExist:
+        return {"error": "User does not exist"}
+    
+    # Get the latest OTP for this user
+    try:
+        otp_obj = OTPVerification.objects.filter(
+            user=user, 
+            is_used=False
+        ).latest('created_at')
+    except OTPVerification.DoesNotExist:
+        return {"error": "No active OTP found for this user"}
+    
+    # Verify OTP
+    if otp_obj.otp != data.otp:
+        return {"error": "Invalid OTP"}
+    
+    # Check if OTP is expired
+    if not otp_obj.is_valid():
+        return {"error": "OTP has expired"}
+    
+    # Mark OTP as used
+    otp_obj.is_used = True
+    otp_obj.save()
+    
+    # Activate user and wallet
+    user.is_active = True
+    user.save()
+    
+    wallet = Wallet.objects.get(user_id=user)
+    wallet.is_active = True
+    wallet.save()
+    
+    # Now generate JWT token
+    payload = {
+        "user_id": user.id,
+        "email": user.email,
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+    }
+
+    JWT_SIGNING_KEY = getattr(settings, "JWT_SIGNING_KEY", None)
+    encoded_token = jwt.encode(payload, JWT_SIGNING_KEY, algorithm="HS256")
+    user.jwt_token = encoded_token
+    user.save()
+    
+    # Send UID to wallet API   
+    API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
+    WALLET_API_URL = "https://apiv2.bhtokens.com/api/v1/user-details"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    
+    # You can either send as query parameter
+    api_response = requests.post(
+        f"{WALLET_API_URL}?apikey={API_KEY}",
+        json={"uid": user.uid},
+        headers=headers
+    )
+
+    # Check if API call was successful
+    if api_response.status_code != 200:
+        # If API call failed, handle the error but don't delete the user
+        # as they've already verified their email
+        return {"error": f"Failed to register with wallet service: {api_response.text}"}
+    
+    cryptocurrencies = Cryptocurrency.objects.all()
+    
+    return {
+        "success": "Email verified successfully! Your account is now active.",
+        "user_id": user.id,
+        'jwt_token': encoded_token,
+        "role": "Client",
+        "referral_code": user.referral_code,
+        "secret_phrase": user.secret_phrase,
+        "uid": user.uid,
+        "cryptocurrencies": [crypto.symbol for crypto in cryptocurrencies],
+    }
+
+@router.post('/resend-otp', tags=["User Account"])
+def resend_otp(request, data: OTPRequestSchema):
+    try:
+        user = User.objects.get(email=data.email)
+    except User.DoesNotExist:
+        return {"error": "User does not exist"}
+    
+    # Check if user is already active
+    if user.is_active:
+        return {"error": "User is already verified"}
+    
+    # Generate new OTP
+    otp = generate_otp(user)
+    
+    # Send OTP via email
+    send_otp_email(data.email, otp)
+    
+    return {"message": "OTP resent successfully. Please check your email."}

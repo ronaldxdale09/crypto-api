@@ -192,3 +192,21 @@ MEDIA_URL = f'{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET_NAME}/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Gmail SMTP (for testing)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'shrewdskrrt@gmail.com'
+EMAIL_HOST_PASSWORD = 'jhng ksud qygu yavk' 
+DEFAULT_FROM_EMAIL = 'shrewdskrrt@gmail.com'
+
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.hostinger.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_USE_SSL = False
+# EMAIL_HOST_USER = 'ron@ronaldxdale.online'
+# EMAIL_HOST_PASSWORD = 'Test@password0926'
+# DEFAULT_FROM_EMAIL = 'ron@ronaldxdale.online' 
