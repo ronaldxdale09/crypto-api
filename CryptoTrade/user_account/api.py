@@ -1101,7 +1101,7 @@ def request_password_reset(request, form: OTPRequestSchema):
 
         return {"Message": "OTP was successfully sent to your registered email"} 
     except User.DoesNotExist:
-        return {"success": False, "error": "Email does not exist"}
+        return {"error": "Email does not exist"}
 
 @router.post('/password_reset/verify_otp', tags=["User Account"])
 def password_reset_verify_otp(request, forms: OTPVerificationSchema):
@@ -1115,11 +1115,11 @@ def password_reset_verify_otp(request, forms: OTPVerificationSchema):
 
         # Verify OTP
         if otp_obj.otp != forms.otp:
-            return {"success": False, "message": "Invalid OTP"}
+            return {"error": "Invalid OTP"}
         
         # Check if OTP is expired
         if not otp_obj.is_valid():
-            return {"success": False, "message": "OTP has expired"}
+            return {"error": "OTP has expired"}
         
         # Mark OTP as used
         otp_obj.is_used = True
@@ -1160,9 +1160,9 @@ def reset_password(request, forms: ResetPasswordSchema):
 
     # Validate password strength (optional but recommended)
     if len(forms.new_password) < 8:
-        return {"success": False, "message": "Password must be at least 8 characters long"}
+        return {"error": "Password must be at least 8 characters long"}
     elif len(forms.new_password) > 12:
-        return {"success": False, "message": "Password must not exceed 12 characters"}
+        return {"error": "Password must not exceed 12 characters"}
 
     
     try:
@@ -1191,4 +1191,4 @@ def reset_password(request, forms: ResetPasswordSchema):
     except Exception as e:
         # Log the error but don't expose details to the user
         print(f"Password reset error: {str(e)}")
-        return {"error" "Failed to reset password"}
+        return {"error": "Failed to reset password"}
