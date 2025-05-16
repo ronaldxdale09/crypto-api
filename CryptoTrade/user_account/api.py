@@ -25,7 +25,8 @@ import ipaddress
 import socket
 from django.core.mail import send_mail
 import pyotp
-from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
+# from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
+from django.contrib.auth.hashers import check_password
 router = Router()
 
 API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
@@ -1154,20 +1155,24 @@ def password_reset_resend_otp(request, data: OTPRequestSchema):
 
 @router.post('/password_reset/reset', tags=["User Account"])
 def reset_password(request, forms: ResetPasswordSchema):
-    #Check if passwords match
+    # Check if passwords match
     if forms.new_password != forms.confirm_password:
-        return {"error": "Password do not match"}
+        return {"error": "Password do not match"} 
 
-    # Validate password strength (optional but recommended)
+    # Validate password strength
     if len(forms.new_password) < 8:
         return {"error": "Password must be at least 8 characters long"}
     elif len(forms.new_password) > 12:
         return {"error": "Password must not exceed 12 characters"}
-
     
     try:
         user = User.objects.get(email=forms.email)
-
+        
+        # Check if new password is the same as the current password
+        from django.contrib.auth.hashers import check_password
+        if check_password(forms.new_password, user.password):
+            return {"error": "New password must differ from previous password"}
+        
         # Find the OTP object
         otp_obj = OTPVerification.objects.filter(
             user=user,
@@ -1186,8 +1191,9 @@ def reset_password(request, forms: ResetPasswordSchema):
             "message": "Password has been reset successfully"
         }
     except User.DoesNotExist:
-        return {"success": False, "error": "User not found"}
-    
+        return {"error": "User not found"}
+    except OTPVerification.DoesNotExist:
+        return {"error": "Invalid or expired OTP"} 
     except Exception as e:
         # Log the error but don't expose details to the user
         print(f"Password reset error: {str(e)}")
