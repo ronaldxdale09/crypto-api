@@ -1138,7 +1138,7 @@ def password_reset_verify_otp(request, forms: OTPVerificationSchema):
         return {"error": "Invalid OTP or email"}
     
 
-@router.post('password_reset/resend-otp', tags=["User Account"])
+@router.post('/password_reset/resend-otp', tags=["User Account"])
 def password_reset_resend_otp(request, data: OTPRequestSchema):
     try:
         user = User.objects.get(email=data.email)
