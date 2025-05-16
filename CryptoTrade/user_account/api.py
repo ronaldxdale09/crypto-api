@@ -1092,17 +1092,16 @@ def request_password_reset(request, form: OTPRequestSchema):
     #Reset a password by providing an email
     try:
         user = User.objects.get(email=form.email)
-    except User.DoesNotExist:
-        return {"message": "If your email is registered, you will receive an OTP"}
-    
-  
-    # Generate OTP
-    otp = generate_otp(user)
-    
-    # Send OTP via email
-    send_otp_email_for_reset_password(form.email, otp)
 
-    return {"Message": "OTP was successfully sent to your registered email"} 
+        # Generate OTP
+        otp = generate_otp(user)
+        
+        # Send OTP via email
+        send_otp_email_for_reset_password(form.email, otp)
+
+        return {"Message": "OTP was successfully sent to your registered email"} 
+    except User.DoesNotExist:
+        return {"success": False, "error": "Email does not exist"}
 
 @router.post('/password_reset/verify_otp', tags=["User Account"])
 def password_reset_verify_otp(request, forms: OTPVerificationSchema):
