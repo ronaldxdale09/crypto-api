@@ -24,7 +24,8 @@ from functools import lru_cache
 import ipaddress
 import socket
 from django.core.mail import send_mail
-
+import pyotp
+from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
 router = Router()
 
 API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
@@ -905,11 +906,81 @@ def generate_otp(user):
 
 def send_otp_email(user_email, otp):
     subject = 'Email Verification OTP'
-    message = f'Your OTP for email verification is: {otp}. This OTP is valid for 10 minutes.'
+    message = f'''Sign-up email code
+
+Thanks for creating an account with TradeX
+
+Here's your authentication code to complete the registration:
+Token: {otp}
+
+This code is valid for 10 minutes. Do not share the code with anyone.
+
+Regards,
+TradeX team'''
     from_email = settings.EMAIL_HOST_USER
     recipient_list = [user_email]
     
     send_mail(subject, message, from_email, recipient_list)
+    
+def send_otp_email_for_reset_password(user_email, otp):
+    subject = 'Reset your TradeX account password'
+    message = f'''Reset your TradeX account password
+
+We've received your request to reset the login password for your TradeX account.
+
+Here's your authentication code:
+
+{otp}
+
+This code is valid for 10 minutes, do not share the code with anyone. Not you? Contact customer support immediately to freeze your account.
+
+Regards,
+TradeX team'''
+    from_email = settings.EMAIL_HOST_USER
+    recipient_list = [user_email]
+    
+    send_mail(subject, message, from_email, recipient_list)
+
+
+def send_password_changed_notification(user_email):
+    """
+    Sends an email notification to the user that their password has been changed.
+    This is a security measure to alert users of account changes.
+    """
+    subject = 'Your password has changed'
+    
+    message = f'''You have just changed your TradeX password.
+
+Not you? Contact customer support immediately to freeze your account
+
+Regards,
+TradeX team
+
+This is an automated message, please do not reply.'''
+    
+    from_email = settings.EMAIL_HOST_USER
+    recipient_list = [user_email]
+    
+    try:
+        send_mail(subject, message, from_email, recipient_list)
+        return True
+    except Exception as e:
+        print(f"Failed to send password change notification: {str(e)}")
+        return False
+
+# def generate_reset_token(user):
+#     """Generate a secure token for password reset using Django's signer"""
+#     signer = TimestampSigner()
+#     return signer.sign(str(user.id))
+
+# def verify_reset_token(token, max_age=900):  # 15 minutes in seconds
+#     """Verify a password reset token"""
+#     signer = TimestampSigner()
+#     try:
+#         user_id = signer.unsign(token, max_age=max_age)
+#         return User.objects.get(id=user_id)
+#     except (SignatureExpired, BadSignature, User.DoesNotExist):
+#         return None
 
 
 @router.post('/verify-otp', tags=["User Account"])
@@ -1013,3 +1084,112 @@ def resend_otp(request, data: OTPRequestSchema):
     send_otp_email(data.email, otp)
     
     return {"message": "OTP resent successfully. Please check your email."}
+
+
+#Reset Password Functionality
+@router.post('/password_reset/request', tags=["User Account"])
+def request_password_reset(request, form: OTPRequestSchema):
+    #Reset a password by providing an email
+    try:
+        user = User.objects.get(email=form.email)
+    except User.DoesNotExist:
+        return {"message": "If your email is registered, you will receive an OTP"}
+    
+  
+    # Generate OTP
+    otp = generate_otp(user)
+    
+    # Send OTP via email
+    send_otp_email_for_reset_password(form.email, otp)
+
+    return {"Message": "OTP was successfully sent to your registered email"} 
+
+@router.post('/password_reset/verify_otp', tags=["User Account"])
+def password_reset_verify_otp(request, forms: OTPVerificationSchema):
+    """Verify the OTP sent to email"""
+    try:
+        user = User.objects.get(email=forms.email)
+        otp_obj = OTPVerification.objects.filter(
+            user=user, 
+            is_used=False
+        ).latest('created_at')
+
+        # Verify OTP
+        if otp_obj.otp != forms.otp:
+            return {"success": False, "message": "Invalid OTP"}
+        
+        # Check if OTP is expired
+        if not otp_obj.is_valid():
+            return {"success": False, "message": "OTP has expired"}
+        
+        # Mark OTP as used
+        otp_obj.is_used = True
+        otp_obj.save()
+        
+        # Generate a short-lived token for password reset
+        # This token will be required in the next step to reset the password
+        
+        return {
+            "success": True, 
+            "message": "OTP verified successfully"
+        }
+        
+    except (User.DoesNotExist, OTPVerification.DoesNotExist):
+        return {"error": "Invalid OTP or email"}
+    
+
+@router.post('password_reset/resend-otp', tags=["User Account"])
+def password_reset_resend_otp(request, data: OTPRequestSchema):
+    try:
+        user = User.objects.get(email=data.email)
+    except User.DoesNotExist:
+        return {"error": "User does not exist"}
+    
+    # Generate new OTP
+    otp = generate_otp(user)
+    
+    # Send OTP via email
+    send_otp_email(data.email, otp)
+    
+    return {"message": "OTP resent successfully. Please check your email."}
+
+@router.post('/password_reset/reset', tags=["User Account"])
+def reset_password(request, forms: ResetPasswordSchema):
+    #Check if passwords match
+    if forms.new_password != forms.confirm_password:
+        return {"error": "Password do not match"}
+
+    # Validate password strength (optional but recommended)
+    if len(forms.new_password) < 8:
+        return {"success": False, "message": "Password must be at least 8 characters long"}
+    elif len(forms.new_password) > 12:
+        return {"success": False, "message": "Password must not exceed 12 characters"}
+
+    
+    try:
+        user = User.objects.get(email=forms.email)
+
+        # Find the OTP object
+        otp_obj = OTPVerification.objects.filter(
+            user=user,
+            otp=forms.otp,
+            is_used=True  # Important: we're looking for the used OTP that was verified
+        ).latest('created_at')
+
+        # Update password
+        user.password = make_password(forms.new_password)
+        user.save()
+
+        send_password_changed_notification(user.email)
+
+        return {
+            "success": True, 
+            "message": "Password has been reset successfully"
+        }
+    except User.DoesNotExist:
+        return {"success": False, "error": "User not found"}
+    
+    except Exception as e:
+        # Log the error but don't expose details to the user
+        print(f"Password reset error: {str(e)}")
+        return {"error" "Failed to reset password"}

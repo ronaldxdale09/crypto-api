@@ -79,3 +79,10 @@ class OTPRequestSchema(Schema):
 
 class MessageResponseSchema(Schema):
     message: str
+
+class ResetPasswordSchema(Schema):
+    email:str
+    otp:str
+    new_password:str
+    confirm_password:str
+
