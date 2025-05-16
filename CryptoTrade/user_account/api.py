@@ -1149,7 +1149,7 @@ def password_reset_resend_otp(request, data: OTPRequestSchema):
     otp = generate_otp(user)
     
     # Send OTP via email
-    send_otp_email(data.email, otp)
+    send_otp_email_for_reset_password(data.email, otp)
     
     return {"message": "OTP resent successfully. Please check your email."}
 
