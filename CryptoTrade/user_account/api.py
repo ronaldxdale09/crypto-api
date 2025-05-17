@@ -111,7 +111,8 @@ def user_information(request, user_id: int):
             "ip_address": user_detail.ip_address if user_detail else None,
             "last_login_session": user_detail.last_login_session if user_detail else None,
             "previous_ip_address": user_detail.previous_ip_address if user_detail else None,
-            "status": user_detail.status if user_detail else None
+            "status": user_detail.status if user_detail else None,
+            "user_country": user_detail.user_country if user_detail else None,
         },
     }
 
