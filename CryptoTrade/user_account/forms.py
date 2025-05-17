@@ -86,3 +86,7 @@ class ResetPasswordSchema(Schema):
     new_password:str
     confirm_password:str
 
+class UpdateUserCountry(Schema):
+    user_id: int
+    country: str
+

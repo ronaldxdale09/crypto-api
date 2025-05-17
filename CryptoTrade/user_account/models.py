@@ -39,6 +39,7 @@ class UserDetail(models.Model):
     ip_address = models.CharField(max_length=200, null=True, blank=True)  # Temporarily use CharField
     previous_ip_address = models.CharField(max_length=200, null=True, blank=True)  # Temporarily use CharField
     status=models.CharField(max_length=200, null = True, blank = True)
+    user_country=models.CharField(max_length=200, null = True, blank = True)
    
 
     def __str__(self):

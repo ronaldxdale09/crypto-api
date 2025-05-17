@@ -1198,3 +1198,17 @@ def reset_password(request, forms: ResetPasswordSchema):
         # Log the error but don't expose details to the user
         print(f"Password reset error: {str(e)}")
         return {"error": "Failed to reset password"}
+    
+
+
+#update user country
+@router.post("/user-detail/add-country", tags=["User Account"])
+def update_selected_country(request, forms: UpdateUserCountry):
+    user = User.objects.get(id=forms.user_id)
+
+    user_detail = UserDetail.objects.get(user_id=user)
+    user_detail.user_country = forms.country
+    user_detail.save()
+    
+    # Return a response
+    return {"status": "success", "message": "Country updated successfully"}
