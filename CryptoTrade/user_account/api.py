@@ -1223,6 +1223,12 @@ def verify_reset_password(request, form: PasswordResetSchema):
         
         # Then verify the password using Django's built-in password verification
         if check_password(form.currentPassword, user.password):
+            # Generate OTP
+            otp = generate_otp(user)
+            
+            # Send OTP via email
+            send_otp_email_for_reset_password(form.email, otp)
+
             return {"success": True, "message": "Password matches the email"}
         else:
             return {"error": "Password does not match with the email"}
