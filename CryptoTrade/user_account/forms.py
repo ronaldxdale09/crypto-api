@@ -90,3 +90,7 @@ class UpdateUserCountry(Schema):
     user_id: int
     country: str
 
+
+class PasswordResetSchema(Schema):
+    email:str
+    currentPassword:str

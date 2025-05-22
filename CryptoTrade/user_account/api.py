@@ -27,6 +27,7 @@ from django.core.mail import send_mail
 import pyotp
 # from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
 from django.contrib.auth.hashers import check_password
+from django.core.exceptions import ObjectDoesNotExist
 router = Router()
 
 API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
@@ -1213,3 +1214,22 @@ def update_selected_country(request, forms: UpdateUserCountry):
     
     # Return a response
     return {"status": "success", "message": "Country updated successfully"}
+
+@router.post("/password_reset/verify_current_password", tags=["User Account"])
+def verify_reset_password(request, form: PasswordResetSchema):
+    try:
+        # First, find the user by email
+        user = User.objects.get(email=form.email)
+        
+        # Then verify the password using Django's built-in password verification
+        if check_password(form.currentPassword, user.password):
+            return {"success": True, "message": "Password matches the email"}
+        else:
+            return {"error": "Password does not match with the email"}
+            
+    except ObjectDoesNotExist:
+        # User with this email doesn't exist
+        return {"error": "Password does not match with the email"}
+    except Exception as e:
+        # Handle any other unexpected errors
+        return {"error": "An error occurred during verification"}
