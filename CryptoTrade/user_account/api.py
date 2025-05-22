@@ -1239,3 +1239,179 @@ def verify_reset_password(request, form: PasswordResetSchema):
     except Exception as e:
         # Handle any other unexpected errors
         return {"error": "An error occurred during verification"}
+
+# Email Reset Functionality
+
+def send_otp_email_for_reset_email(user_email, otp):
+    """
+    Sends an OTP email for email reset verification.
+    """
+    subject = 'CryptoTrade Email Change Verification'
+    message = f'''
+    Hello,
+
+    You have requested to change your email address on CryptoTrade.
+    
+    Your verification code is: {otp}
+    
+    This code will expire in 15 minutes.
+    
+    If you did not request this change, please secure your account immediately.
+    
+    Best regards,
+    CryptoTrade Team
+    '''
+    from_email = 'noreply@cryptotrade.com'
+    recipient_list = [user_email]
+    
+    send_mail(subject, message, from_email, recipient_list, fail_silently=False)
+
+def send_email_changed_notification(old_email, new_email):
+    """
+    Sends a notification email to both old and new email addresses when email is changed.
+    This is a security measure to alert users of account changes.
+    """
+    # Notification to old email
+    old_subject = 'CryptoTrade Email Address Changed'
+    old_message = f'''
+    Hello,
+
+    Your email address on CryptoTrade has been changed from {old_email} to {new_email}.
+    
+    If you did not make this change, please contact our support team immediately.
+    
+    Best regards,
+    CryptoTrade Team
+    '''
+    from_email = 'noreply@cryptotrade.com'
+    
+    # Send to old email
+    send_mail(old_subject, old_message, from_email, [old_email], fail_silently=False)
+    
+    # Notification to new email
+    new_subject = 'Welcome to CryptoTrade - Email Change Confirmation'
+    new_message = f'''
+    Hello,
+
+    Your CryptoTrade account email has been successfully changed to this address ({new_email}).
+    
+    You can now use this email address to log in to your account.
+    
+    Best regards,
+    CryptoTrade Team
+    '''
+    
+    # Send to new email
+    send_mail(new_subject, new_message, from_email, [new_email], fail_silently=False)
+
+@router.post("/email_reset/request", tags=["User Account"])
+def request_email_reset(request, form: EmailResetSchema):
+    try:
+        # Find the user by email
+        user = User.objects.get(email=form.email)
+        
+        # Generate OTP
+        otp = generate_otp(user)
+        
+        # Send OTP via email
+        send_otp_email_for_reset_email(form.email, otp)
+
+        return {"success": True, "message": "Verification code sent to your email"}
+            
+    except ObjectDoesNotExist:
+        # User with this email doesn't exist
+        return {"error": "Email not found"}
+    except Exception as e:
+        # Handle any other unexpected errors
+        return {"error": "An error occurred during verification"}
+
+@router.post('/email_reset/verify_otp', tags=["User Account"])
+def email_reset_verify_otp(request, forms: OTPVerificationSchema):
+    try:
+        # Find the user by email
+        user = User.objects.get(email=forms.email)
+        
+        # Find the most recent OTP for this user that matches the provided OTP
+        otp_obj = OTPVerification.objects.filter(
+            user=user,
+            otp=forms.otp,
+            is_used=False  # Must be unused
+        ).latest('created_at')
+        
+        # Check if OTP is valid (not expired)
+        if not otp_obj.is_valid():
+            return {"error": "OTP has expired. Please request a new one."}
+        
+        # Mark OTP as used
+        otp_obj.is_used = True
+        otp_obj.save()
+        
+        return {
+            "success": True, 
+            "message": "OTP verified successfully"
+        }
+        
+    except (User.DoesNotExist, OTPVerification.DoesNotExist):
+        return {"error": "Invalid OTP or email"}
+
+@router.post('/email_reset/resend_otp', tags=["User Account"])
+def email_reset_resend_otp(request, data: OTPRequestSchema):
+    try:
+        user = User.objects.get(email=data.email)
+    except User.DoesNotExist:
+        return {"error": "User does not exist"}
+    
+    # Generate new OTP
+    otp = generate_otp(user)
+    
+    # Send OTP via email
+    send_otp_email_for_reset_email(data.email, otp)
+    
+    return {"message": "OTP resent successfully. Please check your email."}
+
+@router.post('/email_reset/change', tags=["User Account"])
+def change_email(request, forms: EmailChangeSchema):
+    try:
+        # Find the user by current email
+        user = User.objects.get(email=forms.email)
+        
+        # Validate the new email format
+        try:
+            validate_email(forms.new_email)
+        except ValidationError:
+            return {"error": "Invalid email format for new email"}
+        
+        # Check if the new email is already in use
+        if User.objects.filter(email=forms.new_email).exists():
+            return {"error": "This email is already registered with another account"}
+        
+        # Find the OTP object
+        otp_obj = OTPVerification.objects.filter(
+            user=user,
+            otp=forms.otp,
+            is_used=True  # Important: we're looking for the used OTP that was verified
+        ).latest('created_at')
+        
+        # Store the old email for notification
+        old_email = user.email
+        
+        # Update email
+        user.email = forms.new_email
+        user.email_verified_at = timezone.now()  # Mark as verified
+        user.save()
+
+        # Send notifications to both old and new email addresses
+        send_email_changed_notification(old_email, forms.new_email)
+
+        return {
+            "success": True, 
+            "message": "Email has been changed successfully"
+        }
+    except User.DoesNotExist:
+        return {"error": "User not found"}
+    except OTPVerification.DoesNotExist:
+        return {"error": "Invalid or expired OTP"} 
+    except Exception as e:
+        # Log the error but don't expose details to the user
+        print(f"Email change error: {str(e)}")
+        return {"error": "Failed to change email"}

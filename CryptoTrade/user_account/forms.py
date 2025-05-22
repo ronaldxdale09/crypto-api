@@ -94,3 +94,11 @@ class UpdateUserCountry(Schema):
 class PasswordResetSchema(Schema):
     email:str
     currentPassword:str
+
+class EmailResetSchema(Schema):
+    email:str
+
+class EmailChangeSchema(Schema):
+    email:str
+    otp:str
+    new_email:str
