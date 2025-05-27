@@ -911,7 +911,7 @@ def send_otp_email(user_email, otp):
     subject = 'Email Verification OTP'
     message = f'''Sign-up email code
 
-Thanks for creating an account with TradeX
+Thanks for creating an account with FLUX
 
 Here's your authentication code to complete the registration:
 Token: {otp}
@@ -919,17 +919,17 @@ Token: {otp}
 This code is valid for 10 minutes. Do not share the code with anyone.
 
 Regards,
-TradeX team'''
+FLUX team'''
     from_email = settings.EMAIL_HOST_USER
     recipient_list = [user_email]
     
     send_mail(subject, message, from_email, recipient_list)
     
 def send_otp_email_for_reset_password(user_email, otp):
-    subject = 'Reset your TradeX account password'
-    message = f'''Reset your TradeX account password
+    subject = 'Reset your FLUX account password'
+    message = f'''Reset your FLUX account password
 
-We've received your request to reset the login password for your TradeX account.
+We've received your request to reset the login password for your FLUX account.
 
 Here's your authentication code:
 
@@ -938,7 +938,7 @@ Here's your authentication code:
 This code is valid for 10 minutes, do not share the code with anyone. Not you? Contact customer support immediately to freeze your account.
 
 Regards,
-TradeX team'''
+FLUX team'''
     from_email = settings.EMAIL_HOST_USER
     recipient_list = [user_email]
     
@@ -952,12 +952,12 @@ def send_password_changed_notification(user_email):
     """
     subject = 'Your password has changed'
     
-    message = f'''You have just changed your TradeX password.
+    message = f'''You have just changed your FLUX password.
 
 Not you? Contact customer support immediately to freeze your account
 
 Regards,
-TradeX team
+FLUX team
 
 This is an automated message, please do not reply.'''
     
@@ -1246,11 +1246,11 @@ def send_otp_email_for_reset_email(user_email, otp):
     """
     Sends an OTP email for email reset verification.
     """
-    subject = 'CryptoTrade Email Change Verification'
+    subject = 'FLUX Email Change Verification'
     message = f'''
     Hello,
 
-    You have requested to change your email address on CryptoTrade.
+    You have requested to change your email address on FLUX.
     
     Your verification code is: {otp}
     
@@ -1259,9 +1259,9 @@ def send_otp_email_for_reset_email(user_email, otp):
     If you did not request this change, please secure your account immediately.
     
     Best regards,
-    CryptoTrade Team
+    FLUX Team
     '''
-    from_email = 'noreply@cryptotrade.com'
+    from_email = 'noreply@flux.com'
     recipient_list = [user_email]
     
     send_mail(subject, message, from_email, recipient_list, fail_silently=False)
@@ -1272,33 +1272,33 @@ def send_email_changed_notification(old_email, new_email):
     This is a security measure to alert users of account changes.
     """
     # Notification to old email
-    old_subject = 'CryptoTrade Email Address Changed'
+    old_subject = 'FLUX Email Address Changed'
     old_message = f'''
     Hello,
 
-    Your email address on CryptoTrade has been changed from {old_email} to {new_email}.
+    Your email address on FLUX has been changed from {old_email} to {new_email}.
     
     If you did not make this change, please contact our support team immediately.
     
     Best regards,
-    CryptoTrade Team
+    FLUX Team
     '''
-    from_email = 'noreply@cryptotrade.com'
+    from_email = 'noreply@flux.com'
     
     # Send to old email
     send_mail(old_subject, old_message, from_email, [old_email], fail_silently=False)
     
     # Notification to new email
-    new_subject = 'Welcome to CryptoTrade - Email Change Confirmation'
+    new_subject = 'Welcome to FLUX - Email Change Confirmation'
     new_message = f'''
     Hello,
 
-    Your CryptoTrade account email has been successfully changed to this address ({new_email}).
+    Your FLUX account email has been successfully changed to this address ({new_email}).
     
     You can now use this email address to log in to your account.
     
     Best regards,
-    CryptoTrade Team
+    FLUX Team
     '''
     
     # Send to new email
