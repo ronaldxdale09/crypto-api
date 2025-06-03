@@ -534,19 +534,20 @@ def edit_profile(request, userId: int):
     
     user_detail.save()
 
-    # Send UID to wallet API   
+    #Sending data to the api 
     API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
-    WALLET_API_URL = "https://apiv2.bhtokens.com/api/v1/user-details"
+    WALLET_API_URL = "https://apiv2.bhtokens.com/api/v1/register-updates"
     
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json"
     }
     
-    # You can either send as query parameter
+   
     api_response = requests.post(
         f"{WALLET_API_URL}?apikey={API_KEY}",
         json={
+            "uid": user_instance.uid,
             "name": user_instance.name,
             "phone_number":user_detail.phone_number,
             "user_country":user_detail.user_country,
@@ -555,12 +556,11 @@ def edit_profile(request, userId: int):
         headers=headers
     )
 
-    # Check if API call was successful
     if api_response.status_code != 200:
         # If API call failed, handle the error but don't delete the user
         # as they've already verified their email
         return {"error": f"Failed to register with wallet service: {api_response.text}"}
-    # Customize response message
+    
     creation_message = "User details created" if created else "User details updated"
     
     return {
