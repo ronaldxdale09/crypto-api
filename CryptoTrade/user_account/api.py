@@ -550,11 +550,12 @@ def edit_profile(request, userId: int):
             "uid": user_instance.uid,
             "name": user_instance.name,
             "phone_number":user_detail.phone_number,
-            "user_country":user_detail.user_country,
+            "user_country":user_detail.user_country or "",
             "ip_address":user_detail.ip_address or ""
             },
         headers=headers
     )
+    print(user_instance.uid)
 
     if api_response.status_code != 200:
         # If API call failed, handle the error but don't delete the user
