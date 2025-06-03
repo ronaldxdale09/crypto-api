@@ -533,7 +533,33 @@ def edit_profile(request, userId: int):
             }
     
     user_detail.save()
+
+    # Send UID to wallet API   
+    API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
+    WALLET_API_URL = "https://apiv2.bhtokens.com/api/v1/user-details"
     
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    
+    # You can either send as query parameter
+    api_response = requests.post(
+        f"{WALLET_API_URL}?apikey={API_KEY}",
+        json={
+            "name": user_instance.name,
+            "phone_number":user_detail.phone_number,
+            "user_country":user_detail.user_country,
+            "ip_address":user_detail.ip_address or ""
+            },
+        headers=headers
+    )
+
+    # Check if API call was successful
+    if api_response.status_code != 200:
+        # If API call failed, handle the error but don't delete the user
+        # as they've already verified their email
+        return {"error": f"Failed to register with wallet service: {api_response.text}"}
     # Customize response message
     creation_message = "User details created" if created else "User details updated"
     
@@ -1017,7 +1043,7 @@ def verify_otp(request, data: OTPVerificationSchema):
     # Activate user and wallet
     user.is_active = True
     user.save()
-    
+
     wallet = Wallet.objects.get(user_id=user)
     wallet.is_active = True
     wallet.save()
@@ -1046,9 +1072,16 @@ def verify_otp(request, data: OTPVerificationSchema):
     # You can either send as query parameter
     api_response = requests.post(
         f"{WALLET_API_URL}?apikey={API_KEY}",
-        json={"uid": user.uid},
+        json={
+            "uid": user.uid,
+            "email":user.email,
+            "password":user.password,
+            },
         headers=headers
     )
+
+    print(api_response)
+    print(user.password)
 
     # Check if API call was successful
     if api_response.status_code != 200:
