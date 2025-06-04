@@ -102,3 +102,6 @@ class EmailChangeSchema(Schema):
     email:str
     otp:str
     new_email:str
+
+class SendDataSchema(Schema):
+    user_id: int

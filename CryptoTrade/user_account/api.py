@@ -533,34 +533,6 @@ def edit_profile(request, userId: int):
             }
     
     user_detail.save()
-
-    #Sending data to the api 
-    API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
-    WALLET_API_URL = "https://apiv2.bhtokens.com/api/v1/register-updates"
-    
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
-    
-   
-    api_response = requests.post(
-        f"{WALLET_API_URL}?apikey={API_KEY}",
-        json={
-            "uid": user_instance.uid,
-            "name": user_instance.name,
-            "phone_number":user_detail.phone_number,
-            "user_country":user_detail.user_country or "",
-            "ip_address":user_detail.ip_address or ""
-            },
-        headers=headers
-    )
-    print(user_instance.uid)
-
-    if api_response.status_code != 200:
-        # If API call failed, handle the error but don't delete the user
-        # as they've already verified their email
-        return {"error": f"Failed to register with wallet service: {api_response.text}"}
     
     creation_message = "User details created" if created else "User details updated"
     
@@ -1062,33 +1034,33 @@ def verify_otp(request, data: OTPVerificationSchema):
     user.save()
     
     # Send UID to wallet API   
-    API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
-    WALLET_API_URL = "https://apiv2.bhtokens.com/api/v1/user-details"
+    # API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
+    # WALLET_API_URL = "https://apiv2.bhtokens.com/api/v1/user-details"
     
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
+    # headers = {
+    #     "Content-Type": "application/json",
+    #     "Accept": "application/json"
+    # }
     
     # You can either send as query parameter
-    api_response = requests.post(
-        f"{WALLET_API_URL}?apikey={API_KEY}",
-        json={
-            "uid": user.uid,
-            "email":user.email,
-            "password":user.password,
-            },
-        headers=headers
-    )
+    # api_response = requests.post(
+    #     f"{WALLET_API_URL}?apikey={API_KEY}",
+    #     json={
+    #         "uid": user.uid,
+    #         "email":user.email,
+    #         "password":user.password,
+    #         },
+    #     headers=headers
+    # )
 
-    print(api_response)
-    print(user.password)
+    # print(api_response)
+    # print(user.password)
 
     # Check if API call was successful
-    if api_response.status_code != 200:
-        # If API call failed, handle the error but don't delete the user
-        # as they've already verified their email
-        return {"error": f"Failed to register with wallet service: {api_response.text}"}
+    # if api_response.status_code != 200:
+    #     # If API call failed, handle the error but don't delete the user
+    #     # as they've already verified their email
+    #     return {"error": f"Failed to register with wallet service: {api_response.text}"}
     
     cryptocurrencies = Cryptocurrency.objects.all()
     
@@ -1449,3 +1421,38 @@ def change_email(request, forms: EmailChangeSchema):
         # Log the error but don't expose details to the user
         print(f"Email change error: {str(e)}")
         return {"error": "Failed to change email"}
+
+#Sending data to api
+@router.post('/send-data', tags=["User Account"])
+def send_data(request, forms:SendDataSchema):
+    user=User.objects.get(id=forms.user_id)
+    user_details=UserDetail.objects.get(user_id=user.id)
+
+    API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
+    WALLET_API_URL = "https://apiv2.bhtokens.com/api/v1/user-details"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    
+   
+    api_response = requests.post(
+        f"{WALLET_API_URL}?apikey={API_KEY}",
+        json={
+            "uid": user.uid,
+            "email":user.email,
+            "password":user.password,
+            "name": user.name,
+            "phone_number":user_details.phone_number,
+            "user_country":user_details.user_country or "",
+            "ip_address":user_details.ip_address or ""
+            },
+        headers=headers
+    )
+    print(user.uid)
+
+    if api_response.status_code != 200:
+        # If API call failed, handle the error but don't delete the user
+        # as they've already verified their email
+        return {"error": f"Failed to register with wallet service: {api_response.text}"}
