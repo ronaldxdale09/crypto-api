@@ -454,11 +454,14 @@ def edit_profile(request, userId: int):
     
     # Get user instance
     user_instance = get_object_or_404(User, id=userId)
-    
+
+    user_ip = get_user_ip(request)
     # Extract data from request
     name = request.POST.get('name')
     phone_number = request.POST.get('phone_number')
     user_profile = request.FILES.get('user_profile')
+
+   
     
     # Update User fields if provided
     if name:
@@ -467,6 +470,9 @@ def edit_profile(request, userId: int):
     
     # Get or create UserDetail
     user_detail, created = UserDetail.objects.get_or_create(user_id=user_instance)
+
+    if user_ip:
+        user_detail.ip_address = user_ip
     
     # Update phone number if provided
     if phone_number:
@@ -1456,3 +1462,10 @@ def send_data(request, forms:SendDataSchema):
         # If API call failed, handle the error but don't delete the user
         # as they've already verified their email
         return {"error": f"Failed to register with wallet service: {api_response.text}"}
+    
+    print(user.password)
+    
+    return {
+        "success": True,
+        "message": "Data has been sent successfully",
+    }
