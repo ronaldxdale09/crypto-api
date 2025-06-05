@@ -105,3 +105,4 @@ class EmailChangeSchema(Schema):
 
 class SendDataSchema(Schema):
     user_id: int
+    password: Optional[str]

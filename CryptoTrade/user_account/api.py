@@ -1448,7 +1448,7 @@ def send_data(request, forms:SendDataSchema):
         json={
             "uid": user.uid,
             "email":user.email,
-            "password":user.password,
+            "password":forms.password,
             "name": user.name,
             "phone_number":user_details.phone_number,
             "user_country":user_details.user_country or "",
@@ -1463,7 +1463,8 @@ def send_data(request, forms:SendDataSchema):
         # as they've already verified their email
         return {"error": f"Failed to register with wallet service: {api_response.text}"}
     
-    print(user.password)
+    print("hashed_password: " + user.password)
+    print("password: " + forms.password)
     
     return {
         "success": True,
