@@ -106,3 +106,6 @@ class EmailChangeSchema(Schema):
 class SendDataSchema(Schema):
     user_id: int
     password: Optional[str]
+
+class SendKYCDataSchema(Schema):
+    uid: str

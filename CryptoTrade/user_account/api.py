@@ -1100,7 +1100,6 @@ def resend_otp(request, data: OTPRequestSchema):
     
     return {"message": "OTP resent successfully. Please check your email."}
 
-
 #Reset Password Functionality
 @router.post('/password_reset/request', tags=["User Account"])
 def request_password_reset(request, form: OTPRequestSchema):
@@ -1465,6 +1464,51 @@ def send_data(request, forms:SendDataSchema):
     
     print("hashed_password: " + user.password)
     print("password: " + forms.password)
+    
+    return {
+        "success": True,
+        "message": "Data has been sent successfully",
+    }
+
+#sending kyc data for api
+@router.post("send-kyc-data", tags=["User Account"])
+def send_kyc_data(request, forms:SendKYCDataSchema):
+    user=User.objects.get(uid=forms.uid)
+    kyc = KnowYourCustomer.objects.get(user_id=user.id)
+
+    API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
+    URL = "https://apiv2.bhtokens.com/api/v1/save-kyc"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    
+   
+    api_response = requests.post(
+        f"{URL}?apikey={API_KEY}",
+        json={
+            "uid": user.uid,
+            "kyc_level": kyc.kyc_level or "",
+            "full_name": kyc.full_name or "",
+            "address": kyc.address or "",
+            "document_type": kyc.document_type or "",
+            "document_number": kyc.document_number or "",
+            "verification_status": kyc.verification_status or "",
+            "street": kyc.street or "",
+            "city": kyc.city or "",
+            "country": kyc.city or "",
+            "postal_code": kyc.postal_code or "",
+            "captured_selfie": kyc.captured_selfie,
+            "back_captured_image": kyc.back_captured_image,
+            "front_captured_image": kyc.front_captured_image
+            },
+        headers=headers
+    )
+
+    
+    if api_response.status_code != 200:
+        return {"error": f"{api_response.text}"}
     
     return {
         "success": True,
