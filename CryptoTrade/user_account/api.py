@@ -28,6 +28,12 @@ import pyotp
 # from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
 from django.contrib.auth.hashers import check_password
 from django.core.exceptions import ObjectDoesNotExist
+
+from django.http import Http404
+from ninja.errors import HttpError
+from requests.exceptions import RequestException, Timeout, ConnectionError
+from django.core.exceptions import ObjectDoesNotExist
+
 router = Router()
 
 API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
@@ -1497,7 +1503,7 @@ def send_kyc_data(request, forms:SendKYCDataSchema):
             "verification_status": kyc.verification_status or "",
             "street": kyc.street or "",
             "city": kyc.city or "",
-            "country": kyc.city or "",
+            "country": kyc.country or "",
             "postal_code": kyc.postal_code or "",
             "captured_selfie": kyc.captured_selfie,
             "back_captured_image": kyc.back_captured_image,
@@ -1514,3 +1520,106 @@ def send_kyc_data(request, forms:SendKYCDataSchema):
         "success": True,
         "message": "Data has been sent successfully",
     }
+
+# @router.post("send-kyc-data", tags=["User Account"])
+# def send_kyc_data(request, forms: SendKYCDataSchema):
+#     try:
+#         # Database operations with specific error handling
+#         try:
+#             user = User.objects.get(uid=forms.uid)
+#         except User.DoesNotExist:
+#             raise HttpError(404, "User not found")
+        
+#         try:
+#             kyc = KnowYourCustomer.objects.get(user_id=user.id)
+#         except KnowYourCustomer.DoesNotExist:
+#             raise HttpError(404, "KYC data not found for this user")
+        
+#         # API configuration
+#         API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
+#         URL = "https://apiv2.bhtokens.com/api/v1/save-kyc"
+        
+#         headers = {
+#             "Content-Type": "application/json",
+#             "Accept": "application/json"
+#         }
+        
+#         # Prepare payload
+#         payload = {
+#             "uid": user.uid,
+#             "kyc_level": kyc.kyc_level or "",
+#             "full_name": kyc.full_name or "",
+#             "address": kyc.address or "",
+#             "document_type": kyc.document_type or "",
+#             "document_number": kyc.document_number or "",
+#             "verification_status": kyc.verification_status or "",
+#             "street": kyc.street or "",
+#             "city": kyc.city or "",
+#             "country": kyc.country or "",  # Fixed: was kyc.city
+#             "postal_code": kyc.postal_code or "",
+#             "captured_selfie": kyc.captured_selfie,
+#             "back_captured_image": kyc.back_captured_image,
+#             "front_captured_image": kyc.front_captured_image
+#         }
+        
+#         # API call with specific error handling
+#         try:
+#             api_response = requests.post(
+#                 f"{URL}?apikey={API_KEY}",
+#                 json=payload,
+#                 headers=headers,
+#                 timeout=30  # Add timeout
+#             )
+            
+#         except Timeout:
+#             raise HttpError(408, "Request timeout - please try again")
+            
+#         except ConnectionError:
+#             raise HttpError(503, "Service temporarily unavailable")
+            
+#         except RequestException as e:
+#             raise HttpError(500, "Failed to communicate with external service")
+        
+#         # Handle API response
+#         if api_response.status_code == 200:
+#             try:
+#                 response_data = api_response.json()
+#                 return {
+#                     "success": True,
+#                     "message": "Data has been sent successfully",
+#                     "data": response_data
+#                 }
+#             except ValueError:
+#                 # API returned 200 but invalid JSON
+#                 return {
+#                     "success": True,
+#                     "message": "Data sent successfully but response format unexpected"
+#                 }
+        
+#         # Handle specific HTTP error codes
+#         elif api_response.status_code == 400:
+#             raise HttpError(400, "Invalid data provided")
+            
+#         elif api_response.status_code == 401:
+#             raise HttpError(500, "Authentication error with external service")
+            
+#         elif api_response.status_code == 403:
+#             raise HttpError(500, "Access denied by external service")
+            
+#         elif api_response.status_code == 429:
+#             raise HttpError(429, "Too many requests - please try again later")
+            
+#         elif api_response.status_code >= 500:
+#             raise HttpError(502, "External service error")
+            
+#         else:
+#             # Generic error for other status codes
+#             raise HttpError(500, "Unexpected error occurred")
+    
+#     except HttpError:
+#         # Re-raise HttpError to maintain proper error responses
+#         raise
+        
+#     except Exception as e:
+#         # Catch any other unexpected errors
+#         raise HttpError(500, "An unexpected error occurred")

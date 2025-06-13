@@ -53,6 +53,8 @@ CORS_ALLOW_METHODS = [
 CORS_ALLOW_ALL_ORIGNS = [
     "https://app.flutterflow.io/debug/NyZRvZ8MqZMvUzWYCQDS",
     "https://c473-2001-4455-26a-1d00-a595-3947-c332-e1c6.ngrok-free.app",
+    'https://fluxcoin.tech/',
+    'https://app.fluxcoin.tech/'
 ]
 
 # CORS_ALLOWED_ORIGIN_REGEXES = [
