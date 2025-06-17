@@ -576,18 +576,14 @@ def upload_kyc(request, user_id: int):
     Upload KYC (Know Your Customer) verification documents
     
     This endpoint allows users to submit their identification documents for verification.
+    Multiple KYC records can be created for the same user (for resubmissions, updates, etc.).
     """
     from django.conf import settings
     
     # Check if user exists
     user = get_object_or_404(User, id=user_id)
     
-    # Prevent duplicate KYC records
-    if KnowYourCustomer.objects.filter(user_id=user).exists():
-        return {
-            "success": False,
-            "message": "KYC record already exists for this user"
-        }
+    # REMOVED: Duplicate KYC check - now allows multiple records per user
     
     # Extract data from request
     document_type = request.POST.get('document_type')
@@ -617,8 +613,10 @@ def upload_kyc(request, user_id: int):
         selfie_size = len(selfie_content)
         selfie_type = captured_selfie.content_type
         
-        # Generate a unique filename
-        selfie_filename = f"selfie_{user_id}_{uuid.uuid4().hex[:8]}.{captured_selfie.name.split('.')[-1]}"
+        # Generate a unique filename with timestamp for better uniqueness
+        import time
+        timestamp = int(time.time())
+        selfie_filename = f"selfie_{user_id}_{timestamp}_{uuid.uuid4().hex[:8]}.{captured_selfie.name.split('.')[-1]}"
         
         # Changed bucket name from crypto_app to image
         bucket_name = "image"
@@ -650,7 +648,7 @@ def upload_kyc(request, user_id: int):
         # Upload front ID image
         front_content = front_captured_image.read()
         front_type = front_captured_image.content_type
-        front_filename = f"front_id_{user_id}_{uuid.uuid4().hex[:8]}.{front_captured_image.name.split('.')[-1]}"
+        front_filename = f"front_id_{user_id}_{timestamp}_{uuid.uuid4().hex[:8]}.{front_captured_image.name.split('.')[-1]}"
         front_storage_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{folder_name}/{front_filename}"
         
         front_response = requests.post(
@@ -673,7 +671,7 @@ def upload_kyc(request, user_id: int):
         # Upload back ID image
         back_content = back_captured_image.read()
         back_type = back_captured_image.content_type
-        back_filename = f"back_id_{user_id}_{uuid.uuid4().hex[:8]}.{back_captured_image.name.split('.')[-1]}"
+        back_filename = f"back_id_{user_id}_{timestamp}_{uuid.uuid4().hex[:8]}.{back_captured_image.name.split('.')[-1]}"
         back_storage_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{folder_name}/{back_filename}"
         
         back_response = requests.post(
@@ -702,7 +700,7 @@ def upload_kyc(request, user_id: int):
             "message": f"Error uploading KYC files: {str(e)}"
         }
     
-    # Create KYC record
+    # Create KYC record (will always create a new one, even if user has existing records)
     try:
         kyc = KnowYourCustomer.objects.create(
             user_id=user,
@@ -710,6 +708,7 @@ def upload_kyc(request, user_id: int):
             captured_selfie=selfie_url,
             front_captured_image=front_id_url,
             back_captured_image=back_id_url,
+            verification_status='pending'  # Set initial status
         )
     except Exception as e:
         import traceback
@@ -720,20 +719,35 @@ def upload_kyc(request, user_id: int):
             "message": f"Error creating KYC record: {str(e)}"
         }
     
-    user_detail_instance = UserDetail.objects.get(user_id=user_id)
-    user_detail_instance.is_verified = True
-    user_detail_instance.save()
+    # Update or create UserDetail record
+    try:
+        user_detail_instance, created = UserDetail.objects.get_or_create(
+            user_id=user,
+            defaults={'is_verified': True}
+        )
+        if not created:
+            user_detail_instance.is_verified = True
+            user_detail_instance.save()
+    except Exception as e:
+        print(f"Error updating UserDetail: {str(e)}")
+        # Don't fail the entire operation if UserDetail update fails
+    
+    # Get count of KYC records for this user
+    kyc_count = KnowYourCustomer.objects.filter(user_id=user).count()
     
     return {
         "success": True,
-        "message": "KYC documents uploaded successfully",
+        "message": f"KYC documents uploaded successfully. This is submission #{kyc_count} for this user.",
+        "kyc_id": kyc.id,
         "user_id": user.id,
         "document_type": kyc.document_type,
+        "verification_status": kyc.verification_status,
         "selfie_url": selfie_url,
         "front_id_url": front_id_url,
         "back_id_url": back_id_url,
-        "is_verified": user_detail_instance.is_verified,
-    }
+        "submission_count": kyc_count,
+        "is_verified": getattr(user_detail_instance, 'is_verified', False),
+}
 
 # class KYCUploadSchema(BaseModel):
 #     document_type: str
