@@ -62,7 +62,7 @@ class KnowYourCustomer(models.Model):
         ('unverified', 'Unverified')
     ]
     
-    user_id= models.OneToOneField(User, on_delete=models.CASCADE)
+    user_id= models.ForeignKey(User, on_delete=models.CASCADE)
     kyc_level=models.CharField(max_length=200, null = True, blank = True)
     full_name=models.CharField(max_length=200, null = True, blank = True)
     address=models.CharField(max_length=200, null = True, blank = True)
