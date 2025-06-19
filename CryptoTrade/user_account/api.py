@@ -1494,7 +1494,7 @@ def send_data(request, forms:SendDataSchema):
 @router.post("send-kyc-data", tags=["User Account"])
 def send_kyc_data(request, forms:SendKYCDataSchema):
     user=User.objects.get(uid=forms.uid)
-    kyc = KnowYourCustomer.objects.get(user_id=user.id)
+    kyc = KnowYourCustomer.objects.filter(user_id=user.id).order_by('-id').first()
 
     API_KEY = "A20RqFwVktRxxRqrKBtmi6ud"
     URL = "https://apiv2.bhtokens.com/api/v1/save-kyc"
